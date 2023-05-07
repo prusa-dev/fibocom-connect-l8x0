@@ -218,8 +218,8 @@ try {
         while ($true) {
             $response = Send-ATCommand "AT+CGATT?; +CSQ?"
 
-            $cgatt = $response | Awk -Split ':|,' -Filter '\+CGATT:' -Action { 1 * $args[1] }
-            $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { 1 * $args[1] }
+            $cgatt = $response | Awk -Split ':|,' -Filter '\+CGATT:' -Action { [int]$args[1] }
+            $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { [int]$args[1] }
 
             if ($cgatt -eq 1 -and $csq -ne 99) {
                 break
@@ -311,7 +311,7 @@ try {
             #$response += Send-ATCommand "AT+XCESQ?; +RSRP?; +RSRQ?"
             $response += Send-ATCommand "AT+XLEC?; +XCCINFO?; +XMCI=1"
 
-            $tech = $response | Awk -Split ':|,' -Filter '\+COPS:' -Action { 1 * $args[4] }
+            $tech = $response | Awk -Split ':|,' -Filter '\+COPS:' -Action { [int]$args[4] }
             $mode = '--'
             switch ($tech) {
                 0 { $mode = 'EDGE' }
@@ -324,20 +324,20 @@ try {
             }
 
             $oper = $response | Awk -Split ':|,' -Filter '\+COPS:' -Action { $args[3] -replace '"', '' }
-            $temp = $response | Awk -Split ':|,' -Filter '\+MTSM:' -Action { 1 * $args[1] }
+            $temp = $response | Awk -Split ':|,' -Filter '\+MTSM:' -Action { [int]$args[1] }
 
-            $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { 1 * $args[1] }
+            $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { [int]$args[1] }
             $csq_perc = 0
             if ($csq -ge 0 -and $csq -le 31) {
                 $csq_perc = $csq * 100 / 31
             }
             $cqs_rssi = 2 * $csq - 113
 
-            $rsrp = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { (1 * $args[10]) - 141 }
-            $rsrq = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { (1 * $args[11]) / 2 - 20 }
-            $sinr = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { (1 * $args[12]) / 2 }
+            $rsrp = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[10] - 141 }
+            $rsrq = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[11] / 2 - 20 }
+            $sinr = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[12] / 2 }
 
-            $bw = $response | Awk -Split ':|,' -Filter '\+XLEC:' -Action { 1 * $args[3] }
+            $bw = $response | Awk -Split ':|,' -Filter '\+XLEC:' -Action { [int]$args[3] }
 
             $bw_freq = switch ($bw) {
                 0 { 1.4 }
