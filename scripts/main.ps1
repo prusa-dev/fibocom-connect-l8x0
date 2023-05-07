@@ -83,16 +83,17 @@ function Awk {
         [Parameter(Mandatory, ValueFromPipeline)]
         [string] $InputValue,
         [Parameter()]
-        [string] $Split = '\s',
+        [regex] $Split = '\s',
         [Parameter(Mandatory)]
-        [string] $Filter,
+        [regex] $Filter,
         [Parameter(Mandatory)]
         [scriptblock] $Action
     )
 
-    $actionArgs = $InputValue -split "`r|`n" | Where-Object { $_ } | Select-String -Pattern $Filter | ForEach-Object { $_ -split $Split }
-
-    Invoke-Command -ScriptBlock $Action -ArgumentList $actionArgs
+    $InputValue -split "`r|`n" | Where-Object { $_ } | Select-String -Pattern $Filter | ForEach-Object {
+        $actionArgs = $_ -split $Split
+        Invoke-Command -ScriptBlock $Action -ArgumentList $actionArgs
+    }
 }
 
 function Send-ATCommand {
