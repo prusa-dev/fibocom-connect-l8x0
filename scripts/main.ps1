@@ -96,6 +96,24 @@ function Awk {
     }
 }
 
+function Get-Bars {
+    param(
+        [Parameter(Mandatory)]
+        [double] $Value,
+        [Parameter(Mandatory)]
+        [double] $Min,
+        [Parameter(Mandatory)]
+        [double] $Max,
+        [uint16] $BarWidth = 8
+    )
+    if ($Value -lt $Min ) { $Value = $Min }
+    if ($Value -gt $Max ) { $Value = $Max }
+
+    $bar_fill = [Math]::Abs([Math]::Round(($Value - $Min) / (($Max - $Min) / $BarWidth)))
+    $bar_empty = $BarWidth - $bar_fill
+    "[{0}{1}]" -f ("$([char]0x2588)" * $bar_fill), ("$([char]0x2591)" * $bar_empty)
+}
+
 function Send-ATCommand {
     param (
         [string] $atCommand
@@ -372,17 +390,11 @@ try {
 
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1} ({2})" -f "Operator:", $oper, $mode))
-
-            $csq_bar_size = 5
-            $csq_bar_fill = [Math]::Round($csq_perc / (100 / $csq_bar_size))
-            $csq_bar_empty = $csq_bar_size - $csq_bar_fill;
-            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,3:f0}% [{2}{3}]" -f "Signal:", $csq_perc, ("$([char]0x2588)" * $csq_bar_fill), ("$([char]0x2591)" * $csq_bar_empty)))
-
-
-            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} dBm" -f "RSSI:", $rssi))
-            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} dB" -f "SINR:", $sinr))
-            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} dBm" -f "RSRP:", $rsrp))
-            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} dB" -f "RSRQ:", $rsrq))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}%   {2}" -f "Signal:", $csq_perc, (Get-Bars -Value $csq_perc -Min 0 -Max 100)))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSSI:", $rssi, (Get-Bars -Value $rssi -Min -110 -Max -25)))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "SINR:", $sinr, (Get-Bars -Value $sinr -Min -10 -Max 30)))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSRP:", $rsrp, (Get-Bars -Value $rsrp -Min -120 -Max -50)))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "RSRQ:", $rsrq, (Get-Bars -Value $rsrq -Min -25 -Max -1)))
 
             Start-Sleep -Seconds 2
         }
