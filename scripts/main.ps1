@@ -15,6 +15,8 @@ $APN_PASS = ""
 
 Clear-Host
 
+. ./common.ps1
+
 $modem = [System.IO.Ports.SerialPort] $null
 $modemEventSourceIdentifier = "SerialPort.DataReceived"
 
@@ -320,6 +322,7 @@ try {
     $cursorSize = $Host.UI.RawUI.CursorSize; $Host.UI.RawUI.CursorSize = 0
     try {
         $currentLine = $Host.UI.RawUI.CursorPosition
+
         while ($true) {
             $response = ''
 
@@ -356,31 +359,13 @@ try {
             $sinr = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[12] / 2 }
 
             $bw = $response | Awk -Split ':|,' -Filter '\+XLEC:' -Action { [int]$args[3] }
+            $rssi = RsrpToRssi $rsrp $bw
 
-            $bw_freq = switch ($bw) {
-                0 { 1.4 }
-                1 { 3 }
-                2 { 5 }
-                3 { 10 }
-                4 { 15 }
-                5 { 20 }
-                default { 0 }
-            }
+            $dluarfnc = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
+            $uluarfcn = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]($args[8] -replace '"', '') }
 
-            $np = switch ($bw) {
-                0 { 6 }
-                1 { 15 }
-                2 { 25 }
-                3 { 50 }
-                4 { 75 }
-                5 { 100 }
-                default { 0 }
-            }
-
-            $rssi = '--'
-            if ($np -ne 0) {
-                $rssi = $rsrp + 10 * [Math]::Log(12 * $np) / [Math]::Log(10)
-            }
+            $band = Get-BandLte $dluarfnc
+            $band_bw = Get-BandwidthFrequency $bw
 
             ### Display
             $Host.UI.RawUI.CursorPosition = $currentLine
@@ -395,6 +380,9 @@ try {
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "SINR:", $sinr, (Get-Bars -Value $sinr -Min -10 -Max 30)))
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSRP:", $rsrp, (Get-Bars -Value $rsrp -Min -120 -Max -50)))
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "RSRQ:", $rsrq, (Get-Bars -Value $rsrq -Min -25 -Max -1)))
+
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}@{2}MHz" -f "Band:", $band, $band_bw))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", $dluarfnc))
 
             Start-Sleep -Seconds 2
         }
