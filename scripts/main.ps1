@@ -62,20 +62,17 @@ function Start-WaitMessage {
 
         & $Action
 
-        $currentLine = $Host.UI.RawUI.CursorPosition
+        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
         $Host.UI.RawUI.CursorPosition = $messageLine
         Write-Host "$Message DONE!"
-        $Host.UI.RawUI.CursorPosition = $currentLine
     }
     catch {
-        $currentLine = $Host.UI.RawUI.CursorPosition
+        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
         $Host.UI.RawUI.CursorPosition = $messageLine
         Write-Host -BackgroundColor $Host.PrivateData.ErrorBackgroundColor -ForegroundColor $Host.PrivateData.ErrorForegroundColor "$Message ERROR!"
-        $Host.UI.RawUI.CursorPosition = $currentLine
         throw
     }
     finally {
-        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job
         $Host.UI.RawUI.CursorSize = $cursorSize
     }
 }
@@ -354,24 +351,44 @@ try {
             }
             $cqs_rssi = 2 * $csq - 113
 
-            $rsrp = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[10] - 141 }
-            $rsrq = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[11] / 2 - 20 }
-            $sinr = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]$args[12] / 2 }
+            $rsrp = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
+            $rsrq = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
+            $sinr = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
 
             $bw = $response | Awk -Split ':|,' -Filter '\+XLEC:' -Action { [int]$args[3] }
+
             $rssi = RsrpToRssi $rsrp $bw
 
             $dluarfnc = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
-            $uluarfcn = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]($args[8] -replace '"', '') }
 
-            $band = Get-BandLte $dluarfnc
-            $band_bw = Get-BandwidthFrequency $bw
+            [int[]]$ci_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { [int]($args[5] -replace '"', '') }
+            [int[]]$pci_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { [int]($args[6] -replace '"', '') }
+            [int[]]$dluarfnc_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { [int]($args[7] -replace '"', '') }
+            [string[]]$band_x = $dluarfnc_x | Get-BandLte
+            [int[]]$rsrp_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { ([int]$args[10]) - 141 }
+            [int[]]$rsrq_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { ([int]$args[11]) / 2 - 20 }
+
+            $ca_match = [regex]::Match($response, "\+XLEC: (?:\d+),(?<no_of_cells>\d+),(?:(?<bw>\d+),*)+(?:BAND_LTE_(?:(?<band>\d+),*)+)?")
+            if ($ca_match.Success) {
+                $ca_number = $ca_match.Groups['no_of_cells'].Value
+
+                [int[]]$ca_bands = $ca_match.Groups['band'].Captures | ForEach-Object { [int]$_.Value } | Where-Object { $_ -ne 0 }
+                [int[]]$ca_bws = $ca_match.Groups['bw'].Captures | ForEach-Object { [int]$_.Value }
+
+                $band = ''
+                for (($i = 0); $i -lt $ca_number; $i++) {
+                    $band += "B{0}@{1}MHz " -f $ca_bands[$i], (Get-BandwidthFrequency $ca_bws[$i])
+                }
+            }
+            else {
+                $band = "{0}@{1}MHz" -f (Get-BandLte $dluarfnc), (Get-BandwidthFrequency $bw)
+            }
 
             ### Display
             $Host.UI.RawUI.CursorPosition = $currentLine
 
-            $lineWidth = 50
-            $titleWidth = 10
+            $lineWidth = 140
+            $titleWidth = 17
 
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1} ({2})" -f "Operator:", $oper, $mode))
@@ -381,8 +398,24 @@ try {
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSRP:", $rsrp, (Get-Bars -Value $rsrp -Min -120 -Max -50)))
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "RSRQ:", $rsrq, (Get-Bars -Value $rsrq -Min -25 -Max -1)))
 
-            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}@{2}MHz" -f "Band:", $band, $band_bw))
+            Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "Band:", $band))
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", $dluarfnc))
+
+            $currentLine1 = $Host.UI.RawUI.CursorPosition
+            for (($i = 0); $i -lt $carriers_count; $i++) {
+                Write-Host ("{0,-$lineWidth}" -f ' ')
+            }
+            $Host.UI.RawUI.CursorPosition = $currentLine1
+
+            $carriers_count = $pci_x.Length
+            for (($i = 0); $i -lt $carriers_count; $i++) {
+                Write-Host -NoNewline ("{0} " -f "===Carrier $($i + 1):")
+                Write-Host -NoNewline ("{0} {1,9} " -f "CI:", $ci_x[$i])
+                Write-Host -NoNewline ("{0} {1,5} " -f "PCI:", $pci_x[$i])
+                Write-Host -NoNewline ("{0} {1,3} ({2,5}) " -f "Band (EARFCN):", $band_x[$i], $dluarfnc_x[$i])
+                Write-Host -NoNewline ("{0} {1,4:f0}dBm {2} " -f "RSRP:", $rsrp_x[$i], (Get-Bars -Value $rsrp_x[$i] -Min -120 -Max -50))
+                Write-Host
+            }
 
             Start-Sleep -Seconds 2
         }
