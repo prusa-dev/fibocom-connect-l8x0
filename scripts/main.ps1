@@ -213,13 +213,14 @@ try {
             $response = Send-ATCommand "AT+CFUN=1"
             $response = Send-ATCommand "AT+CMEE=1"
             $response = Send-ATCommand "AT+CGPIAF=1,0,0,0"
+            $response = Send-ATCommand "AT+XCESQRC=1"
             $response = Send-ATCommand "AT+CREG=0"
             $response = Send-ATCommand "AT+CEREG=0"
             $response = Send-ATCommand "AT+CGATT=0"
             $response = Send-ATCommand "AT+COPS=2"
+            $response = Send-ATCommand "AT+XACT=2,,,0"
             $response = Send-ATCommand "AT+CGDCONT=0,`"IP`""
             $response = Send-ATCommand "AT+CGDCONT=0"
-            $response = Send-ATCommand "AT+XACT=2,,,0"
             $response = Send-ATCommand "AT+CGDCONT=1,`"IP`",`"$APN`""
             $response = Send-ATCommand "AT+XGAUTH=1,0,`"$APN_NAME`",`"$APN_PASS`""
             $response = Send-ATCommand "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
@@ -280,36 +281,37 @@ try {
     Write-Host "DNS2: $ip_dns2"
 
     if (-Not $OnlyMonitor) {
-        ### Setup IPv4 Network
-        Write-Host "Setup network"
+        Start-WaitMessage -Message "Setup network" -Action {
+            ### Setup IPv4 Network
 
-        #### Adapter init
-        Get-NetAdapter -ifIndex $ncm1ifindex | Enable-NetAdapter -Confirm:$false | Out-Null
-        Get-NetAdapter -ifIndex $ncm1ifindex | Select-Object -Property name | Disable-NetAdapterBinding | Out-Null
-        Get-NetAdapter -ifIndex $ncm1ifindex | Select-Object -Property name | Enable-NetAdapterBinding -ComponentID ms_tcpip | Out-Null
+            #### Adapter init
+            Get-NetAdapter -ifIndex $ncm1ifindex | Enable-NetAdapter -Confirm:$false | Out-Null
+            Get-NetAdapter -ifIndex $ncm1ifindex | Select-Object -Property name | Disable-NetAdapterBinding | Out-Null
+            Get-NetAdapter -ifIndex $ncm1ifindex | Select-Object -Property name | Enable-NetAdapterBinding -ComponentID ms_tcpip | Out-Null
 
-        #### Address cleanup
-        Start-Sleep -Milliseconds 100
-        Get-NetIPAddress -ifIndex $ncm1ifindex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetIPAddress -Confirm:$false | Out-Null
-        Get-NetNeighbor -ifIndex $ncm1ifindex -LinkLayerAddress $MAC -ErrorAction SilentlyContinue | Remove-NetNeighbor -Confirm:$false | Out-Null
-        Get-NetRoute -ifIndex $ncm1ifindex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false | Out-Null
-        Set-DnsClientServerAddress -InterfaceIndex $ncm1ifindex -ResetServerAddresses -Confirm:$false | Out-Null
+            #### Address cleanup
+            Start-Sleep -Milliseconds 100
+            Get-NetIPAddress -ifIndex $ncm1ifindex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetIPAddress -Confirm:$false | Out-Null
+            Get-NetNeighbor -ifIndex $ncm1ifindex -LinkLayerAddress $MAC -ErrorAction SilentlyContinue | Remove-NetNeighbor -Confirm:$false | Out-Null
+            Get-NetRoute -ifIndex $ncm1ifindex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false | Out-Null
+            Set-DnsClientServerAddress -InterfaceIndex $ncm1ifindex -ResetServerAddresses -Confirm:$false | Out-Null
 
-        ##### Address assign
-        Start-Sleep -Milliseconds 100
-        Set-NetIPInterface -ifIndex $ncm1ifindex -Dhcp Disabled
-        New-NetIPAddress -ifIndex $ncm1ifindex -AddressFamily IPv4 -IPAddress $ip_addr -PrefixLength $ip_prefix_length -PolicyStore ActiveStore | Out-Null
-        New-NetNeighbor -ifIndex $ncm1ifindex -AddressFamily IPv4 -IPAddress $ip_addr -LinkLayerAddress $MAC | Out-Null
-        New-NetNeighbor -ifIndex $ncm1ifindex -AddressFamily IPv4 -IPAddress $ip_gw -LinkLayerAddress $MAC | Out-Null
+            ##### Address assign
+            Start-Sleep -Milliseconds 100
+            Set-NetIPInterface -ifIndex $ncm1ifindex -Dhcp Disabled
+            New-NetIPAddress -ifIndex $ncm1ifindex -AddressFamily IPv4 -IPAddress $ip_addr -PrefixLength $ip_prefix_length -PolicyStore ActiveStore | Out-Null
+            New-NetNeighbor -ifIndex $ncm1ifindex -AddressFamily IPv4 -IPAddress $ip_addr -LinkLayerAddress $MAC | Out-Null
+            New-NetNeighbor -ifIndex $ncm1ifindex -AddressFamily IPv4 -IPAddress $ip_gw -LinkLayerAddress $MAC | Out-Null
 
-        #### Add route
-        Start-Sleep -Milliseconds 100
-        New-NetRoute -ifIndex $ncm1ifindex -NextHop $ip_gw -DestinationPrefix "0.0.0.0/0" -RouteMetric 0 -PolicyStore ActiveStore | Out-Null
+            #### Add route
+            Start-Sleep -Milliseconds 100
+            New-NetRoute -ifIndex $ncm1ifindex -NextHop $ip_gw -DestinationPrefix "0.0.0.0/0" -RouteMetric 0 -PolicyStore ActiveStore | Out-Null
 
-        #### Add DNS
-        Start-Sleep -Milliseconds 100
-        Set-DNSClient -InterfaceIndex $ncm1ifindex -RegisterThisConnectionsAddress $false | Out-Null
-        Set-DnsClientServerAddress -InterfaceIndex $ncm1ifindex -ServerAddresses @("$($ip_dns1)", "$($ip_dns2)") | Out-Null
+            #### Add DNS
+            Start-Sleep -Milliseconds 100
+            Set-DNSClient -InterfaceIndex $ncm1ifindex -RegisterThisConnectionsAddress $false | Out-Null
+            Set-DnsClientServerAddress -InterfaceIndex $ncm1ifindex -ServerAddresses @("$($ip_dns1)", "$($ip_dns2)") | Out-Null
+        }
     }
 
 
