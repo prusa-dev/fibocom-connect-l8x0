@@ -9,8 +9,8 @@ $ErrorActionPreference = 'Stop'
 
 $MAC = "00-00-11-12-13-14"
 $NAM = "*acm2*"
-$APN = "internet.mts.ru"
-$APN_NAME = ""
+$APN = "internet"
+$APN_USER = ""
 $APN_PASS = ""
 
 Clear-Host
@@ -102,7 +102,7 @@ try {
             $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
             $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
             $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
-            $response = Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_NAME`",`"$APN_PASS`""
+            $response = Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_USER`",`"$APN_PASS`""
             $response = Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
             $response = Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
             $response = Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
