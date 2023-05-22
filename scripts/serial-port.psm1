@@ -49,11 +49,17 @@ function Send-ATCommand {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
+        [ValidateNotNull()]
         [System.IO.Ports.SerialPort] $Port,
 
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string] $Command
     )
+
+    if (-Not($Port.IsOpen)) {
+        throw "Can't send command. Modem port is not opened"
+    }
 
     $sourceIdentifier = "$($Port.PortName)_DataReceived"
     $timeout = $Port.ReadTimeout / 1000
