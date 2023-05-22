@@ -54,7 +54,7 @@ try {
     $response = Send-ATCommand -Port $modem -Command "AT+CGMI?; +FMM?; +GTPKGVER?; +CFSN?; +CGSN?"
 
     $manufacturer = $response | Awk -Split '[:,]' -Filter '\+CGMI:' -Action { $args[1] -replace '"|^\s', '' }
-    $model = $response | Awk -Split ':|,' -Filter '\+FMM:' -Action { $args[1] -replace '"|^\s', '' }
+    $model = $response | Awk -Split '[:,]' -Filter '\+FMM:' -Action { $args[1] -replace '"|^\s', '' }
 
     $firmwareVer = $response | Awk -Filter '\+GTPKGVER:' -Action { $args[1] -replace '"', '' }
     $serialNumber = $response | Awk -Filter '\+CFSN:' -Action { $args[1] -replace '"', '' }
@@ -88,11 +88,11 @@ try {
             $response = Send-ATCommand -Port $modem -Command "AT+CFUN=1"
             $response = Send-ATCommand -Port $modem -Command "AT+CMEE=1"
             $response = Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
-            $response = Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
             $response = Send-ATCommand -Port $modem -Command "AT+CREG=0"
             $response = Send-ATCommand -Port $modem -Command "AT+CEREG=0"
             $response = Send-ATCommand -Port $modem -Command "AT+CGATT=0"
             $response = Send-ATCommand -Port $modem -Command "AT+COPS=2"
+            $response = Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
             $response = Send-ATCommand -Port $modem -Command "AT+XACT=2,,,0"
             $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
             $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
@@ -111,8 +111,8 @@ try {
         while ($true) {
             $response = Send-ATCommand -Port $modem -Command "AT+CGATT?; +CSQ?"
 
-            $cgatt = $response | Awk -Split ':|,' -Filter '\+CGATT:' -Action { [int]$args[1] }
-            $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { [int]$args[1] }
+            $cgatt = $response | Awk -Split '[:,]' -Filter '\+CGATT:' -Action { [int]$args[1] }
+            $csq = $response | Awk -Split '[:,]' -Filter '\+CSQ:' -Action { [int]$args[1] }
 
             if ($cgatt -eq 1 -and $csq -ne 99) {
                 break
@@ -136,7 +136,7 @@ try {
 
     if ($response -match "`r`nOK") {
 
-        $ip_addr = $response | Awk -Split ':|,' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' }
+        $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' }
         $m = [regex]::Match($ip_addr, '(?<ip>(?:\d{1,3}\.){3}\d{1,3})\.(?<mask>(?:\d{1,3}\.){3}\d{1,3})')
         if (-Not $m.Success) {
             Write-Error2 "Could not get ip address from '$ip_addr'"
@@ -145,9 +145,9 @@ try {
         $ip_addr = $m.Groups['ip'].Value
         $ip_mask = $m.Groups['mask'].Value
         $ip_prefix_length = ([Convert]::ToString(([ipaddress]$ip_mask).Address, 2) -replace 0, $null).Length
-        $ip_gw = $response | Awk -Split ':|,' -Filter '\+CGCONTRDP:' -Action { $args[5] -replace '"', '' }
-        $ip_dns1 = $response | Awk -Split ':|,' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
-        $ip_dns2 = $response | Awk -Split ':|,' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
+        $ip_gw = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[5] -replace '"', '' }
+        $ip_dns1 = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
+        $ip_dns2 = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
     }
 
     Write-Host "IP: $ip_addr"
@@ -206,7 +206,7 @@ try {
             $response += Send-ATCommand -Port $modem -Command "AT+CSQ?"
             $response += Send-ATCommand -Port $modem -Command "AT+XLEC?; +XCCINFO?; +XMCI=1"
 
-            $tech = $response | Awk -Split ':|,' -Filter '\+COPS:' -Action { [int]$args[4] }
+            $tech = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { [int]$args[4] }
             $mode = '--'
             switch ($tech) {
                 0 { $mode = 'EDGE' }
@@ -218,32 +218,32 @@ try {
                 7 { $mode = 'LTE' }
             }
 
-            $oper = $response | Awk -Split ':|,' -Filter '\+COPS:' -Action { $args[3] -replace '"', '' }
-            $temp = $response | Awk -Split ':|,' -Filter '\+MTSM:' -Action { [int]$args[1] }
+            $oper = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { $args[3] -replace '"', '' }
+            $temp = $response | Awk -Split '[:,]' -Filter '\+MTSM:' -Action { [int]$args[1] }
 
-            $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { [int]$args[1] }
+            $csq = $response | Awk -Split '[:,]' -Filter '\+CSQ:' -Action { [int]$args[1] }
             $csq_perc = 0
             if ($csq -ge 0 -and $csq -le 31) {
                 $csq_perc = $csq * 100 / 31
             }
             $cqs_rssi = 2 * $csq - 113
 
-            $rsrp = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
-            $rsrq = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
-            $sinr = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
+            $rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
+            $rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
+            $sinr = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
 
-            $bw = $response | Awk -Split ':|,' -Filter '\+XLEC:' -Action { [int]$args[3] }
+            $bw = $response | Awk -Split '[:,]' -Filter '\+XLEC:' -Action { [int]$args[3] }
 
             $rssi = Convert-RsrpToRssi $rsrp $bw
 
-            $dluarfnc = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
+            $dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
 
-            [int[]]$ci_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { [int]($args[5] -replace '"', '') }
-            [int[]]$pci_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { [int]($args[6] -replace '"', '') }
-            [int[]]$dluarfnc_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { [int]($args[7] -replace '"', '') }
+            [int[]]$ci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[5] -replace '"', '') }
+            [int[]]$pci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[6] -replace '"', '') }
+            [int[]]$dluarfnc_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[7] -replace '"', '') }
             [string[]]$band_x = $dluarfnc_x | Get-BandLte
-            [int[]]$rsrp_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { ([int]$args[10]) - 141 }
-            [int[]]$rsrq_x = $response | Awk -Split ':|,' -Filter '\+XMCI:' -Action { ([int]$args[11]) / 2 - 20 }
+            [int[]]$rsrp_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { ([int]$args[10]) - 141 }
+            [int[]]$rsrq_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { ([int]$args[11]) / 2 - 20 }
 
             $ca_match = [regex]::Match($response, "\+XLEC: (?:\d+),(?<no_of_cells>\d+),(?:(?<bw>\d+),*)+(?:BAND_LTE_(?:(?<band>\d+),*)+)?")
             if ($ca_match.Success) {
