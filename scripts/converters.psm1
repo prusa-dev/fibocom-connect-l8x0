@@ -5,7 +5,6 @@ function Get-BandLte {
     )
 
     process {
-
         if ( $Channel -lt 600 ) {
             "B1"
         }
@@ -225,7 +224,6 @@ function Get-BandLte {
     }
 }
 
-
 function Get-BandwidthFrequency {
     param(
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
@@ -244,7 +242,7 @@ function Get-BandwidthFrequency {
     }
 }
 
-function RsrpToRssi {
+function Convert-RsrpToRssi {
     param(
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
         [double] $Rsrp,

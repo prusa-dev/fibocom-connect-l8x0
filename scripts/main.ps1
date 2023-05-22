@@ -15,126 +15,23 @@ $APN_PASS = ""
 
 Clear-Host
 
-. ./common.ps1
+Import-Module ./common.psm1
+Import-Module ./serial-port.psm1
+Import-Module ./converters.psm1
 
-$modem = [System.IO.Ports.SerialPort] $null
-$modemEventSourceIdentifier = "SerialPort.DataReceived"
-
-function Write-Error2 {
-    param (
-        [Parameter(Position = 0)]
-        [string]$Message
-    )
-    Write-Host -BackgroundColor $Host.PrivateData.ErrorBackgroundColor -ForegroundColor $Host.PrivateData.ErrorForegroundColor $Message
+Write-Host "Find modem control port..."
+$acm2name = Get-PnpDevice -class ports -FriendlyName $NAM -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "ok" } | Select-Object -ExpandProperty Name
+if (-Not $acm2name) {
+    Write-Error2 "No modem control port found. Exiting."
+    exit 1
 }
-
-function Start-WaitMessage {
-    param(
-        [Parameter(Mandatory)]
-        [string] $Message,
-        [Parameter(Mandatory)]
-        [scriptblock] $Action
-    )
-
-    try {
-        $cursorSize = $Host.UI.RawUI.CursorSize; $Host.UI.RawUI.CursorSize = 0
-        $messageLine = $Host.UI.RawUI.CursorPosition
-
-        Write-Host
-
-        $job = Start-ThreadJob -StreamingHost $Host -ScriptBlock {
-            $messageLine = $using:messageLine
-            $counter = 0
-            while ($true) {
-                $frame = $using:Message + ''.PadRight($counter % 4, '.')
-
-                $currentLine = $Host.UI.RawUI.CursorPosition
-                $Host.UI.RawUI.CursorPosition = $messageLine
-
-                Write-Host "$frame".PadRight($Host.UI.RawUI.BufferSize.Width, ' ')
-
-                $Host.UI.RawUI.CursorPosition = $currentLine
-
-                $counter += 1
-                Start-Sleep -Milliseconds 300
-            }
-        }
-
-        & $Action
-
-        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
-        $Host.UI.RawUI.CursorPosition = $messageLine
-        Write-Host "$Message DONE!"
-    }
-    catch {
-        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
-        $Host.UI.RawUI.CursorPosition = $messageLine
-        Write-Host -BackgroundColor $Host.PrivateData.ErrorBackgroundColor -ForegroundColor $Host.PrivateData.ErrorForegroundColor "$Message ERROR!"
-        throw
-    }
-    finally {
-        $Host.UI.RawUI.CursorSize = $cursorSize
-    }
+$modemport_match = [regex]::Match($acm2name, '(COM\d{1,3})')
+if (-Not $modemport_match.Success) {
+    Write-Error2 "No modem control port found. Exiting."
+    exit 1
 }
-
-function Awk {
-    param (
-        [Parameter(Mandatory, ValueFromPipeline)]
-        [string] $InputValue,
-        [Parameter()]
-        [regex] $Split = '\s',
-        [Parameter(Mandatory)]
-        [regex] $Filter,
-        [Parameter(Mandatory)]
-        [scriptblock] $Action
-    )
-
-    $InputValue -split "`r|`n" | Where-Object { $_ } | Select-String -Pattern $Filter | ForEach-Object {
-        $actionArgs = $_ -split $Split
-        Invoke-Command -ScriptBlock $Action -ArgumentList $actionArgs
-    }
-}
-
-function Get-Bars {
-    param(
-        [Parameter(Mandatory)]
-        [double] $Value,
-        [Parameter(Mandatory)]
-        [double] $Min,
-        [Parameter(Mandatory)]
-        [double] $Max,
-        [uint16] $BarWidth = 8
-    )
-    if ($Value -lt $Min ) { $Value = $Min }
-    if ($Value -gt $Max ) { $Value = $Max }
-
-    $bar_fill = [Math]::Abs([Math]::Round(($Value - $Min) / (($Max - $Min) / $BarWidth)))
-    $bar_empty = $BarWidth - $bar_fill
-    "[{0}{1}]" -f ("$([char]0x2588)" * $bar_fill), ("$([char]0x2591)" * $bar_empty)
-}
-
-function Send-ATCommand {
-    param (
-        [string] $atCommand
-    )
-
-    $response = ''
-    $modem.WriteLine($atCommand)
-
-    while ($true) {
-        $e = Wait-Event -SourceIdentifier $modemEventSourceIdentifier -Timeout ($modem.ReadTimeout / 1000)
-        if (-Not $e) {
-            return $null
-        }
-        Remove-Event -EventIdentifier $e.EventIdentifier
-        $response += $modem.ReadExisting()
-        if ($response -match "`r`n(OK|ERROR)") {
-            break;
-        }
-    }
-
-    $response
-}
+$modemport = $modemport_match.Groups[1].Value
+Write-Host "Found modem control port '$acm2name', '$modemport'"
 
 Write-Host "Check NCM CDC availablity and status..."
 $ncm1ifindex = Get-NetAdapter | Where-Object { $_.MacAddress -eq $MAC } | Select-Object -ExpandProperty InterfaceIndex
@@ -144,43 +41,19 @@ if (-Not $ncm1ifindex) {
 }
 Write-Host "NCM CDC available, ifindex = $ncm1ifindex"
 
-Write-Host "Find modem control port..."
-$acm2name = Get-PnpDevice -class ports -FriendlyName $NAM -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "ok" } | Select-Object -ExpandProperty Name
-if (-Not $acm2name) {
-    Write-Error2 "No modem control port found. Exiting."
-    exit 1
-}
 
-$modemport_match = [regex]::Match($acm2name, '(COM\d{1,3})')
-if (-Not $modemport_match.Success) {
-    Write-Error2 "No modem control port found. Exiting."
-    exit 1
-}
-$modemport = $modemport_match.Groups[1].Value
-Write-Host "Found modem control port '$acm2name', '$modemport'"
-
-$modem = new-Object System.IO.Ports.SerialPort $modemport, 115200, None, 8, one
-$modem.ReadBufferSize = 8192
-$modem.ReadTimeout = 1000
-$modem.WriteBufferSize = 8192
-$modem.WriteTimeout = 1000
-$modem.DtrEnable = $true
-$modem.NewLine = "`r"
+$modem = New-SerialPort -Name $modemport
 
 try {
-    Register-ObjectEvent -SourceIdentifier $modemEventSourceIdentifier -InputObject $modem -EventName "DataReceived"
 
-    $modem.Open();
-    $modem.DiscardInBuffer()
-    $modem.DiscardOutBuffer()
+    Open-SerialPort -Port $modem
 
-
-    Send-ATCommand "ATE0" | Out-Null
+    Send-ATCommand -Port $modem -Command "ATE0" | Out-Null
 
     ### Get modem information
-    $response = Send-ATCommand "AT+CGMI?; +FMM?; +GTPKGVER?; +CFSN?; +CGSN?"
+    $response = Send-ATCommand -Port $modem -Command "AT+CGMI?; +FMM?; +GTPKGVER?; +CFSN?; +CGSN?"
 
-    $manufacturer = $response | Awk -Split ':|,' -Filter '\+CGMI:' -Action { $args[1] -replace '"|^\s', '' }
+    $manufacturer = $response | Awk -Split '[:,]' -Filter '\+CGMI:' -Action { $args[1] -replace '"|^\s', '' }
     $model = $response | Awk -Split ':|,' -Filter '\+FMM:' -Action { $args[1] -replace '"|^\s', '' }
 
     $firmwareVer = $response | Awk -Filter '\+GTPKGVER:' -Action { $args[1] -replace '"', '' }
@@ -188,6 +61,8 @@ try {
 
     $imei = $response | Awk -Filter '\+CGSN:' -Action { $args[1] -replace '"', '' }
 
+    Write-Host
+    Write-Host "=== Modem information ==="
     Write-Host "Manufacturer: $manufacturer"
     Write-Host "Model: $model"
     Write-Host "Firmware: $firmwareVer"
@@ -197,7 +72,7 @@ try {
     ### TODO: add sim pin and status check
 
     ### Get SIM information
-    $response = Send-ATCommand "AT+CGSN?; +CIMI?; +CCID?"
+    $response = Send-ATCommand -Port $modem -Command "AT+CGSN?; +CIMI?; +CCID?"
 
     $imsi = $response | Awk -Filter '\+CIMI:' -Action { $args[1] -replace '"', '' }
     $ccid = $response | Awk -Filter '\+CCID:' -Action { $args[1] -replace '"', '' }
@@ -209,32 +84,32 @@ try {
     if (-not $OnlyMonitor) {
         ### Connect
         Write-Host
-        Start-WaitMessage -Message "Initialize connection" -Action {
-            $response = Send-ATCommand "AT+CFUN=1"
-            $response = Send-ATCommand "AT+CMEE=1"
-            $response = Send-ATCommand "AT+CGPIAF=1,0,0,0"
-            $response = Send-ATCommand "AT+XCESQRC=1"
-            $response = Send-ATCommand "AT+CREG=0"
-            $response = Send-ATCommand "AT+CEREG=0"
-            $response = Send-ATCommand "AT+CGATT=0"
-            $response = Send-ATCommand "AT+COPS=2"
-            $response = Send-ATCommand "AT+XACT=2,,,0"
-            $response = Send-ATCommand "AT+CGDCONT=0,`"IP`""
-            $response = Send-ATCommand "AT+CGDCONT=0"
-            $response = Send-ATCommand "AT+CGDCONT=1,`"IP`",`"$APN`""
-            $response = Send-ATCommand "AT+XGAUTH=1,0,`"$APN_NAME`",`"$APN_PASS`""
-            $response = Send-ATCommand "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
-            $response = Send-ATCommand "AT+XDNS=1,1"
-            $response = Send-ATCommand "AT+CGACT=1,1"
-            $response = Send-ATCommand "AT+COPS=0,0"
-            $response = Send-ATCommand "AT+CGATT=1"
-            $response = Send-ATCommand "AT+CGDATA=M-RAW_IP,1"
+        Wait-Action -Message "Initialize connection" -Action {
+            $response = Send-ATCommand -Port $modem -Command "AT+CFUN=1"
+            $response = Send-ATCommand -Port $modem -Command "AT+CMEE=1"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
+            $response = Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
+            $response = Send-ATCommand -Port $modem -Command "AT+CREG=0"
+            $response = Send-ATCommand -Port $modem -Command "AT+CEREG=0"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGATT=0"
+            $response = Send-ATCommand -Port $modem -Command "AT+COPS=2"
+            $response = Send-ATCommand -Port $modem -Command "AT+XACT=2,,,0"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
+            $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
+            $response = Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_NAME`",`"$APN_PASS`""
+            $response = Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
+            $response = Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
+            $response = Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGATT=1"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGDATA=M-RAW_IP,1"
         }
     }
 
-    Start-WaitMessage -Message "Establish connection" -Action {
+    Wait-Action -Message "Establish connection" -Action {
         while ($true) {
-            $response = Send-ATCommand "AT+CGATT?; +CSQ?"
+            $response = Send-ATCommand -Port $modem -Command "AT+CGATT?; +CSQ?"
 
             $cgatt = $response | Awk -Split ':|,' -Filter '\+CGATT:' -Action { [int]$args[1] }
             $csq = $response | Awk -Split ':|,' -Filter '\+CSQ:' -Action { [int]$args[1] }
@@ -247,6 +122,7 @@ try {
         }
     }
 
+    Write-Host
     Write-Host "=== Connection information ==="
 
     $ip_addr = "--"
@@ -256,7 +132,7 @@ try {
     $ip_dns1 = "--"
     $ip_dns2 = "--"
 
-    $response = Send-ATCommand "AT+CGCONTRDP=1"
+    $response = Send-ATCommand -Port $modem -Command "AT+CGCONTRDP=1"
 
     if ($response -match "`r`nOK") {
 
@@ -281,7 +157,7 @@ try {
     Write-Host "DNS2: $ip_dns2"
 
     if (-Not $OnlyMonitor) {
-        Start-WaitMessage -Message "Setup network" -Action {
+        Wait-Action -Message "Setup network" -Action {
             ### Setup IPv4 Network
 
             #### Adapter init
@@ -325,11 +201,10 @@ try {
         while ($true) {
             $response = ''
 
-            $response += Send-ATCommand "AT+MTSM=1"
-            $response += Send-ATCommand "AT+COPS?"
-            $response += Send-ATCommand "AT+CSQ?"
-            #$response += Send-ATCommand "AT+XCESQ?; +RSRP?; +RSRQ?"
-            $response += Send-ATCommand "AT+XLEC?; +XCCINFO?; +XMCI=1"
+            $response += Send-ATCommand -Port $modem -Command "AT+MTSM=1"
+            $response += Send-ATCommand -Port $modem -Command "AT+COPS?"
+            $response += Send-ATCommand -Port $modem -Command "AT+CSQ?"
+            $response += Send-ATCommand -Port $modem -Command "AT+XLEC?; +XCCINFO?; +XMCI=1"
 
             $tech = $response | Awk -Split ':|,' -Filter '\+COPS:' -Action { [int]$args[4] }
             $mode = '--'
@@ -359,7 +234,7 @@ try {
 
             $bw = $response | Awk -Split ':|,' -Filter '\+XLEC:' -Action { [int]$args[3] }
 
-            $rssi = RsrpToRssi $rsrp $bw
+            $rssi = Convert-RsrpToRssi $rsrp $bw
 
             $dluarfnc = $response | Awk -Split ':|,' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
 
@@ -389,7 +264,7 @@ try {
             ### Display
             $Host.UI.RawUI.CursorPosition = $currentLine
 
-            $lineWidth = 140
+            $lineWidth = $Host.UI.RawUI.BufferSize.Width
             $titleWidth = 17
 
             Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
@@ -428,8 +303,5 @@ try {
     }
 }
 finally {
-    Unregister-Event -SourceIdentifier $modemEventSourceIdentifier -Force -ErrorAction SilentlyContinue
-    if ($modem.IsOpen) {
-        $modem.Close()
-    }
+    Close-SerialPort -Port $modem
 }
