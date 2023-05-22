@@ -210,6 +210,10 @@ try {
             $response += Send-ATCommand -Port $modem -Command "AT+CSQ?"
             $response += Send-ATCommand -Port $modem -Command "AT+XLEC?; +XCCINFO?; +XMCI=1"
 
+            if ([string]::IsNullOrEmpty($response)) {
+                continue
+            }
+
             $tech = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { [int]$args[4] }
             $mode = '--'
             switch ($tech) {
