@@ -15,10 +15,15 @@ $APN_PASS = ""
 
 Clear-Host
 
+### Import modules
+if (-Not(Get-Command | Where-Object { $_.Name -like 'Start-ThreadJob' })) {
+    Import-Module ./ThreadJob/ThreadJob.psd1
+}
 Import-Module ./common.psm1
 Import-Module ./serial-port.psm1
 Import-Module ./converters.psm1
 
+### Find modem
 Write-Host "Find modem control port..."
 $acm2name = Get-PnpDevice -class ports -FriendlyName $NAM -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "ok" } | Select-Object -ExpandProperty Name
 if (-Not $acm2name) {
@@ -105,20 +110,20 @@ try {
             $response = Send-ATCommand -Port $modem -Command "AT+CGATT=1"
             $response = Send-ATCommand -Port $modem -Command "AT+CGDATA=M-RAW_IP,1"
         }
-    }
 
-    Wait-Action -Message "Establish connection" -Action {
-        while ($true) {
-            $response = Send-ATCommand -Port $modem -Command "AT+CGATT?; +CSQ?"
+        Wait-Action -Message "Establish connection" -Action {
+            while ($true) {
+                $response = Send-ATCommand -Port $modem -Command "AT+CGATT?; +CSQ?"
 
-            $cgatt = $response | Awk -Split '[:,]' -Filter '\+CGATT:' -Action { [int]$args[1] }
-            $csq = $response | Awk -Split '[:,]' -Filter '\+CSQ:' -Action { [int]$args[1] }
+                $cgatt = $response | Awk -Split '[:,]' -Filter '\+CGATT:' -Action { [int]$args[1] }
+                $csq = $response | Awk -Split '[:,]' -Filter '\+CSQ:' -Action { [int]$args[1] }
 
-            if ($cgatt -eq 1 -and $csq -ne 99) {
-                break
+                if ($cgatt -eq 1 -and $csq -ne 99) {
+                    break
+                }
+
+                Start-Sleep -Seconds 2
             }
-
-            Start-Sleep -Seconds 2
         }
     }
 
@@ -135,7 +140,6 @@ try {
     $response = Send-ATCommand -Port $modem -Command "AT+CGCONTRDP=1"
 
     if ($response -match "`r`nOK") {
-
         $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' }
         $m = [regex]::Match($ip_addr, '(?<ip>(?:\d{1,3}\.){3}\d{1,3})\.(?<mask>(?:\d{1,3}\.){3}\d{1,3})')
         if (-Not $m.Success) {
