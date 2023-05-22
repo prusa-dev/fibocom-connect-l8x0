@@ -1,0 +1,189 @@
+;
+; Copyright (c) 2016 by Thesycon Systemsoftware & Consulting GmbH
+;
+; Intel Mobile Port setup information file
+;
+; This file supports:
+;     Windows Vista x64
+;     Windows 7 x64
+;     Windows 8
+;     Windows 8.1
+;
+
+
+;******************************************************************************
+; Version Section
+;------------------------------------------------------------------------------
+[Version]
+Signature="$Windows NT$"
+DriverVer=05/18/2016,4.45.0.0
+Provider=%S_Provider%
+ClassGUID={4d36e978-e325-11ce-bfc1-08002be10318}
+Class=Ports
+CatalogFile=imc1_com_x64.cat
+
+
+;******************************************************************************
+; Manufacturer
+;------------------------------------------------------------------------------
+[Manufacturer]
+%S_Mfg%=_Models, ntamd64
+
+
+;******************************************************************************
+; Models Section
+;------------------------------------------------------------------------------
+[_Models.ntamd64]
+
+; special entry for core dump
+"Intel Mobile (core1)"= _Install, USB\imc1&VID_1519&PID_F000&CF_00&MI_00
+"Intel Mobile (core2)"= _Install, USB\imc1&VID_1519&PID_F000&CF_00&MI_02
+"Intel Mobile Artemis"= _Install, USB\imc1&02_02_00&artemis
+"Intel Mobile MA Trace"= _Install, USB\imc1&02_02_00&ma_trace
+"Intel Mobile OCT Trace"= _Install, USB\imc1&02_02_00&oct_trace
+"Intel Mobile GTI/IPICOM"= _Install, USB\imc1&02_02_00&gti_ipicom
+"Intel Mobile AT Commands"= _Install, USB\imc1&02_02_00&at_commands
+"Intel Mobile AT Commands 1"= _Install, USB\imc1&02_02_00&at_commands1
+"Intel Mobile AT Commands 2"= _Install, USB\imc1&02_02_00&at_commands2
+"Intel Mobile (acm1)"= _Install, USB\imc1&02_02_00&0
+"Intel Mobile (acm2)"= _Install, USB\imc1&02_02_00&1
+"Intel Mobile (acm3)"= _Install, USB\imc1&02_02_00&2
+"Intel Mobile (acm4)"= _Install, USB\imc1&02_02_00&3
+"Intel Mobile (acm5)"= _Install, USB\imc1&02_02_00&4
+"Intel Mobile (acm6)"= _Install, USB\imc1&02_02_00&5
+"Intel Mobile (acm7)"= _Install, USB\imc1&02_02_00&6
+"Intel Mobile AT Commands"= _Install, USB\VID_8087&PID_0932&MI_03
+"Intel Mobile OCT Trace"= _Install, USB\VID_8087&PID_0932&MI_05
+"Intel Mobile GTI/IPICOM"= _Install, USB\VID_8087&PID_0932&MI_07
+
+"Intel Mobile Port (acm1)"=_Install2, USB\VID_8087&PID_0911&MI_02 
+"Intel Mobile Port (acm2)"=_Install2, USB\VID_8087&PID_0911&MI_04 
+
+
+;******************************************************************************
+; Install Sections
+;------------------------------------------------------------------------------
+[_Install.ntamd64]
+CopyFiles=_CopyFiles_sys
+AddReg=_Common_AddReg
+
+[_Install.ntamd64.Services]
+AddService = %S_ServiceName%, 0x00000002, _AddService, _EventLog
+
+[_Install.ntamd64.HW]
+AddReg=_AddReg_HW
+
+[_Install2.ntamd64]
+CopyFiles=_CopyFiles_sys
+AddReg=_Common_AddReg
+
+[_Install2.ntamd64.Services]
+AddService = %S_ServiceName%, 0x00000002, _AddService, _EventLog
+
+[_Install2.ntamd64.HW]
+AddReg=_AddReg_HW, _AddReg_HW2
+
+
+[_AddService]
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+StartType      = 3                  ; MANUAL
+ErrorControl   = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\%S_DriverName%.sys
+AddReg=_AddReg_Service
+
+[_EventLog]
+AddReg=_EventLog_AddReg
+
+[_EventLog_AddReg]
+HKR,,EventMessageFile,%REG_EXPAND_SZ%,"%%SystemRoot%%\System32\IoLogMsg.dll;%%SystemRoot%%\System32\drivers\%S_DriverName%.sys"
+HKR,,TypesSupported,  %REG_DWORD%, 7
+
+
+;******************************************************************************
+; Registry sections
+;------------------------------------------------------------------------------
+[_AddReg_HW]
+HKR,,RequestTimeout,0x00010001, 2500
+HKR,,TimerInterval,0x00010001, 10
+HKR,,useCtsFlowControl,0x00010001, 0
+
+HKR,,ReadBufferSize,     0x00010001, 65536
+HKR,,WriteBufferSize,    0x00010001, 65536
+HKR,,ReadCircBufferSize, 0x00010001, 65536
+HKR,,WriteCircBufferSize,0x00010001, 65536
+HKR,,ReadBufferCount,    0x00010001, 5
+
+[_AddReg_HW2]
+; when set the idle interval for the port driver to support selective suspend
+; together with the usbccgp inbox driver
+; note: this selective suspend feature can cause data lost in both directions
+; idle time in seconds, use 0 to turn it off
+HKR,,IdleInterval,     0x00010001, 5
+
+[_AddReg_Service]
+HKR,Parameters,,,
+
+
+[_Common_AddReg]
+; is a serial port
+HKR,,PortSubClass,1,01
+; property page, system default
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+
+
+;******************************************************************************
+; Copy file sections
+;------------------------------------------------------------------------------
+[_CopyFiles_sys]
+imc1_com_x64.sys,,,0x00000004 
+; note: no string variable possible in this section !
+
+;******************************************************************************
+; Destination Directories
+;------------------------------------------------------------------------------
+[DestinationDirs]
+DefaultDestDir  = 12  ; %windir%\system32\drivers 
+_CopyFiles_sys = 12
+
+;******************************************************************************
+; Disk Layout
+;------------------------------------------------------------------------------
+[SourceDisksNames.amd64]
+1=%S_DiskName%,,0
+
+[SourceDisksFiles.amd64]
+imc1_com_x64.sys=1
+
+
+;******************************************************************************
+; Strings
+;------------------------------------------------------------------------------
+[Strings]
+;
+; Non-Localizable Strings, DO NOT MODIFY!
+;
+REG_SZ         = 0x00000000
+REG_MULTI_SZ   = 0x00010000
+REG_EXPAND_SZ  = 0x00020000
+REG_BINARY     = 0x00000001
+REG_DWORD      = 0x00010001
+
+
+;
+; Localizable Strings, modify as required
+;
+; provider
+S_Provider="Intel"
+S_Mfg="Intel"
+
+; disk name
+S_DiskName="Intel Mobile Highspeed Modem driver disk"
+
+; service name 
+S_ServiceName="imc1_com"
+
+; driver name (binary executable without .sys extension)
+S_DriverName="imc1_com_x64"
+
+
+;;;;;;;;;;;;;;;;;;;;;; EOF ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
