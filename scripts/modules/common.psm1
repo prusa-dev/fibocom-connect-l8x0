@@ -1,3 +1,5 @@
+$ErrorActionPreference = 'Stop'
+
 function Write-Error2 {
     param (
         [Parameter(Position = 0)]
@@ -7,6 +9,7 @@ function Write-Error2 {
 }
 
 function Wait-Action {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string] $Message,
@@ -35,7 +38,7 @@ function Wait-Action {
                 $Host.UI.RawUI.CursorPosition = $currentLine
 
                 $counter += 1
-                Start-Sleep -Milliseconds 300
+                Start-Sleep -Milliseconds 300 | Out-Null
             }
         }
 
@@ -57,8 +60,10 @@ function Wait-Action {
 }
 
 function Awk {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory, ValueFromPipeline)]
+        [AllowEmptyString()]
         [string] $InputValue,
         [Parameter()]
         [regex] $Split = '\s',
@@ -75,6 +80,7 @@ function Awk {
 }
 
 function Get-Bars {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [double] $Value,
