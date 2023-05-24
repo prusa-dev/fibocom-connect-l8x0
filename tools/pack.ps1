@@ -1,4 +1,7 @@
-mkdir -Force ./dist | Out-Null
+$ErrorActionPreference = 'Stop'
+
+Remove-Item -Force -Recurse  -ErrorAction SilentlyContinue ./dist
+New-Item -ItemType Directory -Force ./dist
 
 $git_hash = $(git describe --tags)
 
