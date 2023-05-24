@@ -38,6 +38,7 @@ try {
             while ($true) {
                 $port = Get-SerialPort -FriendlyName $COM_NAME
                 if ($port) {
+                    Start-Sleep -Seconds 2 | Out-Null
                     return $port
                 }
                 Start-Sleep -Seconds 5 | Out-Null
@@ -46,6 +47,7 @@ try {
 
         if ($modem) {
             $modem.Dispose()
+            $modem = $null
         }
 
         $modem = New-SerialPort -Name $modem_port
@@ -94,7 +96,6 @@ try {
             ### Connect
             Write-Host
             Wait-Action -Message "Initialize connection" -Action {
-                Start-Sleep -Seconds 5 | Out-Null
                 $response = ''
                 $response += Send-ATCommand -Port $modem -Command "AT+CFUN=1"
                 $response += Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
@@ -140,7 +141,7 @@ try {
 
         $response = Send-ATCommand -Port $modem -Command "AT+CGCONTRDP=1"
 
-        if (Test-AtCommandSuccess $response) {
+        if (-Not (Test-AtResponseError $response)) {
             $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' }
             $m = [regex]::Match($ip_addr, '(?<ip>(?:\d{1,3}\.){3}\d{1,3})\.(?<mask>(?:\d{1,3}\.){3}\d{1,3})')
             if (-Not $m.Success) {
@@ -187,7 +188,7 @@ try {
         Write-Host "=== Status ==="
         $cursorSize = $Host.UI.RawUI.CursorSize; $Host.UI.RawUI.CursorSize = 0
         try {
-            $currentLine = $Host.UI.RawUI.CursorPosition
+            $statusLine = $Host.UI.RawUI.CursorPosition
 
             while ($true) {
                 if ((Get-Event -SourceIdentifier $watchdogEventSource -ErrorAction SilentlyContinue)) {
@@ -199,7 +200,7 @@ try {
                 $response += Send-ATCommand -Port $modem -Command "AT+MTSM=1"
                 $response += Send-ATCommand -Port $modem -Command "AT+COPS?"
                 $response += Send-ATCommand -Port $modem -Command "AT+CSQ?"
-                $response += Send-ATCommand -Port $modem -Command "AT+XLEC?; +XCCINFO?; +XMCI=1"
+                $response += Send-ATCommand -Port $modem -Command "AT+XCCINFO?; +XLEC?; +XMCI=1"
 
                 if ([string]::IsNullOrEmpty($response)) {
                     continue
@@ -227,15 +228,15 @@ try {
                 }
                 $cqs_rssi = 2 * $csq - 113
 
-                $rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
-                $rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
-                $sinr = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
+                [double]$rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
+                [double]$rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
+                [double]$sinr = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
 
-                $bw = $response | Awk -Split '[:,]' -Filter '\+XLEC:' -Action { [int]$args[3] }
+                [int]$bw = $response | Awk -Split '[:,]' -Filter '\+XLEC:' -Action { [int]$args[3] }
 
                 $rssi = Convert-RsrpToRssi $rsrp $bw
 
-                $dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
+                [int]$dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
 
                 [int[]]$ci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[5] -replace '"', '') }
                 [int[]]$pci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[6] -replace '"', '') }
@@ -248,12 +249,16 @@ try {
                 if ($ca_match.Success) {
                     $ca_number = $ca_match.Groups['no_of_cells'].Value
 
-                    [int[]]$ca_bands = $ca_match.Groups['band'].Captures | ForEach-Object { [int]$_.Value } | Where-Object { $_ -ne 0 }
-                    [int[]]$ca_bws = $ca_match.Groups['bw'].Captures | ForEach-Object { [int]$_.Value }
+                    [int[]]$ca_bw_x = $ca_match.Groups['bw'].Captures | ForEach-Object { [int]$_.Value }
+                    [string[]]$ca_band_x = $ca_match.Groups['band'].Captures | Where-Object { $_.Value -gt 0 } | ForEach-Object { "B$_" }
+
+                    if ($ca_band_x.Length -eq 0) {
+                        $ca_band_x = $band_x
+                    }
 
                     $band = ''
                     for (($i = 0); $i -lt $ca_number; $i++) {
-                        $band += "B{0}@{1}MHz " -f $ca_bands[$i], (Get-BandwidthFrequency $ca_bws[$i])
+                        $band += "{0}@{1}MHz " -f $ca_band_x[$i], (Get-BandwidthFrequency $ca_bw_x[$i])
                     }
                 }
                 else {
@@ -261,7 +266,7 @@ try {
                 }
 
                 ### Display
-                $Host.UI.RawUI.CursorPosition = $currentLine
+                $Host.UI.RawUI.CursorPosition = $statusLine
 
                 $lineWidth = $Host.UI.RawUI.BufferSize.Width
                 $titleWidth = 17
@@ -277,11 +282,11 @@ try {
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "Band:", $band))
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", $dluarfnc))
 
-                $currentLine1 = $Host.UI.RawUI.CursorPosition
+                $carriersLine = $Host.UI.RawUI.CursorPosition
                 for (($i = 0); $i -lt $carriers_count; $i++) {
                     Write-Host ("{0,-$lineWidth}" -f ' ')
                 }
-                $Host.UI.RawUI.CursorPosition = $currentLine1
+                $Host.UI.RawUI.CursorPosition = $carriersLine
 
                 $carriers_count = $pci_x.Length
                 for (($i = 0); $i -lt $carriers_count; $i++) {
@@ -296,6 +301,10 @@ try {
 
                 Start-Sleep -Seconds 2
             }
+        }
+        catch {
+            Write-Error2 $_
+            Start-Sleep -Seconds 5
         }
         finally {
             $Host.UI.RawUI.CursorSize = $cursorSize
