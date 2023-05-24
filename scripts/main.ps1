@@ -231,12 +231,12 @@ try {
                 [double]$rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
                 [double]$rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
                 [double]$sinr = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
+                [int]$dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
 
                 [int]$bw = $response | Awk -Split '[:,]' -Filter '\+XLEC:' -Action { [int]$args[3] }
 
                 $rssi = Convert-RsrpToRssi $rsrp $bw
 
-                [int]$dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
 
                 [int[]]$ci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[5] -replace '"', '') }
                 [int[]]$pci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[6] -replace '"', '') }
