@@ -7,8 +7,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# NCM intrface MAC address
 $MAC = "00-00-11-12-13-14"
-$NAM = "*acm2*"
+# COM port display name search string. Could be '*COM7*' if acm2 does not exists on your machine
+$COM_NAME = "*acm2*"
+
 $APN = "internet"
 $APN_USER = ""
 $APN_PASS = ""
@@ -20,7 +23,7 @@ Get-ChildItem -Recurse -Path .\ -Include *.ps1, *.psm1, *.psd1, *.dll | Unblock-
 
 ### Import modules
 if (-Not(Get-Command | Where-Object { $_.Name -like 'Start-ThreadJob' })) {
-    Import-Module ./modules/ThreadJob/ThreadJob.psd1
+    Import-Module -Global ./modules/ThreadJob/ThreadJob.psd1
 }
 Import-Module ./modules/common.psm1
 Import-Module ./modules/serial-port.psm1
@@ -33,7 +36,7 @@ try {
 
         $modem_port = Wait-Action -Message 'Find modem control port' -Action {
             while ($true) {
-                $port = Get-SerialPort -FriendlyName $NAM
+                $port = Get-SerialPort -FriendlyName $COM_NAME
                 if ($port) {
                     return $port
                 }
@@ -49,7 +52,8 @@ try {
 
         Open-SerialPort -Port $modem
 
-        Send-ATCommand -Port $modem -Command "ATE0" | Out-Null
+        Send-ATCommand -Port $modem -Command "ATE1" | Out-Null
+        Send-ATCommand -Port $modem -Command "AT+CMEE=2" | Out-Null
 
         ### Get modem information
         Write-Host
@@ -69,7 +73,13 @@ try {
         Write-Host "Serial: $serialNumber"
         Write-Host "IMEI: $imei"
 
-        ### TODO: add sim pin and status check
+        ### Check SIM Card
+        $response = Send-ATCommand -Port $modem -Command "AT+CPIN?"
+        if (-Not($response -match '\+CPIN: READY')) {
+            Write-Error2 "Check SIM card."
+            Write-Error2 ($response -join "`r`n")
+            exit 1
+        }
 
         ### Get SIM information
         $response = Send-ATCommand -Port $modem -Command "AT+CIMI?; +CCID?"
@@ -80,42 +90,40 @@ try {
         Write-Host "IMSI: $imsi"
         Write-Host "ICCID: $ccid"
 
-        if (-not $OnlyMonitor) {
+        if (-Not $OnlyMonitor) {
             ### Connect
             Write-Host
             Wait-Action -Message "Initialize connection" -Action {
-                $response = Send-ATCommand -Port $modem -Command "AT+CFUN=1"
-                $response = Send-ATCommand -Port $modem -Command "AT+CMEE=1"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
-                $response = Send-ATCommand -Port $modem -Command "AT+CREG=0"
-                $response = Send-ATCommand -Port $modem -Command "AT+CEREG=0"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGATT=0"
-                $response = Send-ATCommand -Port $modem -Command "AT+COPS=2"
-                $response = Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
-                $response = Send-ATCommand -Port $modem -Command "AT+XACT=2,,,0"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
-                $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
-                $response = Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_USER`",`"$APN_PASS`""
-                $response = Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
-                $response = Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
-                $response = Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGATT=1"
-                $response = Send-ATCommand -Port $modem -Command "AT+CGDATA=M-RAW_IP,1"
+                Start-Sleep -Seconds 5 | Out-Null
+                $response = ''
+                $response += Send-ATCommand -Port $modem -Command "AT+CFUN=1"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
+                $response += Send-ATCommand -Port $modem -Command "AT+CREG=0"
+                $response += Send-ATCommand -Port $modem -Command "AT+CEREG=0"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGATT=0"
+                $response += Send-ATCommand -Port $modem -Command "AT+COPS=2"
+                $response += Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
+                $response += Send-ATCommand -Port $modem -Command "AT+XACT=2,,,0"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
+                $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
+                $response += Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_USER`",`"$APN_PASS`""
+                $response += Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
+                $response += Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
+                $response += Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGATT=1"
+                $response += Send-ATCommand -Port $modem -Command "AT+CGDATA=M-RAW_IP,1"
             }
 
             Wait-Action -Message "Establish connection" -Action {
                 while ($true) {
                     $response = Send-ATCommand -Port $modem -Command "AT+CGATT?; +CSQ?"
-
                     $cgatt = $response | Awk -Split '[:,]' -Filter '\+CGATT:' -Action { [int]$args[1] }
                     $csq = $response | Awk -Split '[:,]' -Filter '\+CSQ:' -Action { [int]$args[1] }
-
                     if ($cgatt -eq 1 -and $csq -ne 99) {
                         break
                     }
-
                     Start-Sleep -Seconds 2
                 }
             }
@@ -132,7 +140,7 @@ try {
 
         $response = Send-ATCommand -Port $modem -Command "AT+CGCONTRDP=1"
 
-        if ($response -match "`r`nOK") {
+        if (Test-AtCommandSuccess $response) {
             $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' }
             $m = [regex]::Match($ip_addr, '(?<ip>(?:\d{1,3}\.){3}\d{1,3})\.(?<mask>(?:\d{1,3}\.){3}\d{1,3})')
             if (-Not $m.Success) {
@@ -144,6 +152,11 @@ try {
             $ip_gw = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[5] -replace '"', '' }
             $ip_dns1 = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
             $ip_dns2 = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
+        }
+        elseif (-Not $OnlyMonitor) {
+            Write-Error2 "Could not get ip address."
+            Write-Error2 $response
+            exit 1
         }
 
         Write-Host "IP: $ip_addr"
@@ -166,7 +179,8 @@ try {
 
         ## Watchdog
 
-        Start-SerialPortMonitoring -SourceIdentifier "WatchdogEvent" -FriendlyName $NAM
+        $watchdogEventSource = "WatchdogEvent"
+        Start-SerialPortMonitoring -WatchdogSourceIdentifier $watchdogEventSource -FriendlyName $COM_NAME
 
         ### Monitoring
         Write-Host
@@ -176,7 +190,7 @@ try {
             $currentLine = $Host.UI.RawUI.CursorPosition
 
             while ($true) {
-                if ((Get-Event -SourceIdentifier "WatchdogEvent" -ErrorAction SilentlyContinue)) {
+                if ((Get-Event -SourceIdentifier $watchdogEventSource -ErrorAction SilentlyContinue)) {
                     break
                 }
 
@@ -288,9 +302,7 @@ try {
         }
 
         Stop-SerialPortMonitoring
-
-        Get-Event -SourceIdentifier "WatchdogEvent" -ErrorAction SilentlyContinue | Remove-Event
-
+        Get-Event -SourceIdentifier $watchdogEventSource -ErrorAction SilentlyContinue | Remove-Event
         Close-SerialPort -Port $modem
     }
 }

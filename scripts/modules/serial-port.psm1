@@ -89,11 +89,11 @@ function Send-ATCommand {
     while ($true) {
         $e = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout $timeout
         if (-Not $e) {
-            return $null
+            break;
         }
         Remove-Event -EventIdentifier $e.EventIdentifier
         $response += $Port.ReadExisting()
-        if ($response -match "`r`n(OK|ERROR)") {
+        if ($response -match "`r`nOK") {
             break;
         }
     }
@@ -101,21 +101,34 @@ function Send-ATCommand {
     $response
 }
 
+function Test-AtCommandSuccess {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Result
+    )
+
+    return (-Not ($Result -match "`r`n(ERROR|\+CME ERROR|\+CMS ERROR)"))
+}
+
 function Start-SerialPortMonitoring {
     param(
         [Parameter(Mandatory)]
-        [string] $SourceIdentifier,
+        [string] $WatchdogSourceIdentifier,
         [Parameter(Mandatory)]
         [string] $FriendlyName
     )
-    $null = Start-Job -Name "SerialPortMonitoring" -ArgumentList $SourceIdentifier, $FriendlyName -ScriptBlock {
+
+    $null = Start-Job -Name "SerialPortMonitoring" -ArgumentList $WatchdogSourceIdentifier, $FriendlyName -InitializationScript $functions -ScriptBlock {
         param (
-            [string] $SourceIdentifier,
+            [string] $WatchdogSourceIdentifier,
             [string] $FriendlyName
         )
-        Import-Module ./modules/serial-port.psm1
 
-        Register-EngineEvent -SourceIdentifier $SourceIdentifier -Forward
+        Import-Module "$($using:PWD)/modules/serial-port.psm1"
+
+        Register-EngineEvent -SourceIdentifier $WatchdogSourceIdentifier -Forward
         Register-WMIEvent -SourceIdentifier "DeviceChangeEvent" -Query "SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 OR EventType = 3 GROUP WITHIN 2"
 
         try {
@@ -128,15 +141,12 @@ function Start-SerialPortMonitoring {
                     }
                     Remove-Event -EventIdentifier $e.EventIdentifier
 
-                    $portName = Get-SerialPort -FriendlyName $FriendlyName
-                    if (-Not ($portName)) {
-                        Write-Host "Send event Connected"
-                        New-Event -SourceIdentifier $SourceIdentifier -Sender "SerialPortMonitoring"  -MessageData "Disconnected"
+                    $foundPort = Get-SerialPort -FriendlyName $FriendlyName
+                    if (-Not $foundPort) {
+                        New-Event -SourceIdentifier $WatchdogSourceIdentifier -Sender "SerialPortMonitoring"  -MessageData "Disconnected"
                     }
                 }
-                catch {
-                    New-Event -SourceIdentifier $SourceIdentifier -Sender "SerialPortMonitoring"  -MessageData "Error $_"
-                }
+                catch { }
             }
         }
         finally {
