@@ -64,6 +64,29 @@ function Close-SerialPort {
     }
 }
 
+function Test-AtResponseError {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Result
+    )
+
+    return ($Result -match "`r`n(ERROR|\+CME ERROR|\+CMS ERROR)")
+}
+
+function Test-AtResponseSuccess {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Result
+    )
+
+    return ($Result -match "`r`nOK")
+}
+
+
 function Send-ATCommand {
     [CmdletBinding()]
     param (
@@ -81,35 +104,23 @@ function Send-ATCommand {
     }
 
     $sourceIdentifier = "$($Port.PortName)_DataReceived"
-    $timeout = $Port.ReadTimeout / 1000
 
     $response = ''
     $Port.WriteLine($Command)
 
     while ($true) {
-        $e = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout $timeout
+        $e = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout 10
         if (-Not $e) {
             break;
         }
         Remove-Event -EventIdentifier $e.EventIdentifier
         $response += $Port.ReadExisting()
-        if ($response -match "`r`nOK") {
+        if ((Test-AtResponseSuccess $response)) {
             break;
         }
     }
 
     $response
-}
-
-function Test-AtCommandSuccess {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string] $Result
-    )
-
-    return (-Not ($Result -match "`r`n(ERROR|\+CME ERROR|\+CMS ERROR)"))
 }
 
 function Start-SerialPortMonitoring {
