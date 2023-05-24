@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
-Remove-Item -Force -Recurse  -ErrorAction SilentlyContinue ./dist
-New-Item -ItemType Directory -Force ./dist
+Remove-Item -Force -Recurse  -ErrorAction SilentlyContinue ./dist | Out-Null
+New-Item -ItemType Directory -Force ./dist | Out-Null
 
 $git_hash = $(git describe --tags)
 
