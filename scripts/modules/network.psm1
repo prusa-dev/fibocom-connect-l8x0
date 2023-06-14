@@ -21,9 +21,7 @@ function Initialize-Network {
         [Parameter(Mandatory)]
         [string] $IpGateway,
         [Parameter(Mandatory)]
-        [string] $IpDns1,
-        [Parameter(Mandatory)]
-        [string] $IpDns2
+        [string[]] $IpDns
     )
     ### Setup IPv4 Network
 
@@ -56,5 +54,5 @@ function Initialize-Network {
     #### Add DNS
     Start-Sleep -Milliseconds 100
     Set-DNSClient -InterfaceIndex $InterfaceIndex -RegisterThisConnectionsAddress $false | Out-Null
-    Set-DnsClientServerAddress -InterfaceIndex $InterfaceIndex -ServerAddresses @("$($IpDns1)", "$($IpDns2)") | Out-Null
+    Set-DnsClientServerAddress -InterfaceIndex $InterfaceIndex -ServerAddresses $IpDns | Out-Null
 }

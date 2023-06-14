@@ -136,8 +136,7 @@ try {
         $ip_addr = "--"
         $ip_mask = "--"
         $ip_gw = "--"
-        $ip_dns1 = "--"
-        $ip_dns2 = "--"
+        [string[]]$ip_dns = @()
 
         $response = Send-ATCommand -Port $modem -Command "AT+CGCONTRDP=1"
 
@@ -151,8 +150,10 @@ try {
             $ip_addr = $m.Groups['ip'].Value
             $ip_mask = $m.Groups['mask'].Value
             $ip_gw = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[5] -replace '"', '' }
-            $ip_dns1 = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
-            $ip_dns2 = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
+
+            $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
+            $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
+            [string[]]$ip_dns = $ip_dns | Where-Object { [string]::IsNullOrWhiteSpace($_) }
         }
         elseif (-Not $OnlyMonitor) {
             Write-Error2 "Could not get ip address."
@@ -163,8 +164,10 @@ try {
         Write-Host "IP: $ip_addr"
         Write-Host "MASK: $ip_mask"
         Write-Host "GW: $ip_gw"
-        Write-Host "DNS1: $ip_dns1"
-        Write-Host "DNS2: $ip_dns2"
+
+        for (($i = 0); $i -lt $ip_dns.Length; $i++) {
+            Write-Host "DNS$($i+1): $($ip_dns[$i])"
+        }
 
         if (-Not $OnlyMonitor) {
             Wait-Action -ErrorAction SilentlyContinue -Message "Setup network" -Action {
@@ -173,7 +176,7 @@ try {
                     Write-Error2 "Could not find interface with mac '$MAC'"
                     exit 1
                 }
-                Initialize-Network -InterfaceIndex $ncm1ifindex -IpAddress $ip_addr -IpMask $ip_mask -IpGateway $ip_gw -IpDns1 $ip_dns1 -IpDns2 $ip_dns2
+                Initialize-Network -InterfaceIndex $ncm1ifindex -IpAddress $ip_addr -IpMask $ip_mask -IpGateway $ip_gw -IpDns $ip_dns
             }
         }
 
