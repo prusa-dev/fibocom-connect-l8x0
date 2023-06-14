@@ -153,7 +153,7 @@ try {
 
             $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
             $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
-            [string[]]$ip_dns = $ip_dns | Where-Object { [string]::IsNullOrWhiteSpace($_) }
+            [string[]]$ip_dns = $ip_dns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
         }
         elseif (-Not $OnlyMonitor) {
             Write-Error2 "Could not get ip address."
