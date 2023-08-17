@@ -16,6 +16,9 @@ $APN = "internet"
 $APN_USER = ""
 $APN_PASS = ""
 
+# Override dns settings. Example: @('8.8.8.8', '1.1.1.1')
+$DNS_OVERRIDE = @()
+
 Clear-Host
 
 ### Ublock files
@@ -165,6 +168,11 @@ try {
         Write-Host "MASK: $ip_mask"
         Write-Host "GW: $ip_gw"
 
+        $DNS_OVERRIDE = $DNS_OVERRIDE | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        if ($DNS_OVERRIDE.Length -gt 0) {
+            $ip_dns = $DNS_OVERRIDE
+        }
+
         for (($i = 0); $i -lt $ip_dns.Length; $i++) {
             Write-Host "DNS$($i+1): $($ip_dns[$i])"
         }
@@ -176,6 +184,7 @@ try {
                     Write-Error2 "Could not find interface with mac '$MAC'"
                     exit 1
                 }
+
                 Initialize-Network -InterfaceIndex $ncm1ifindex -IpAddress $ip_addr -IpMask $ip_mask -IpGateway $ip_gw -IpDns $ip_dns
             }
         }

@@ -18,3 +18,7 @@ Edit `scripts/main.ps1` to configure your carrier APN, APN_USER and APN_PASS
 #### Preferred bands
 
 Find `AT+XACT=` in `scripts/main.ps1` and edit command to your needs
+
+### Override DNS
+
+Edit `scripts/main.ps1` to configure your DNS: DNS_OVERRIDE
