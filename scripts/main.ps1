@@ -7,6 +7,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$app_version = "=== Fibocom Connect v2023.08.01 ==="
+Write-Host $app_version
+
 # NCM intrface MAC address
 $MAC = "00-00-11-12-13-14"
 # COM port display name search string. Could be '*COM7*' if acm2 does not exists on your machine
@@ -37,6 +40,8 @@ try {
     while ($true) {
         Clear-Host
 
+        Write-Host $app_version
+
         $modem_port = Wait-Action -Message 'Find modem control port' -Action {
             while ($true) {
                 $port = Get-SerialPort -FriendlyName $COM_NAME
@@ -47,6 +52,8 @@ try {
                 Start-Sleep -Seconds 5 | Out-Null
             }
         }
+
+        Write-Host "Modem control port: $modem_port"
 
         if ($modem) {
             $modem.Dispose()
