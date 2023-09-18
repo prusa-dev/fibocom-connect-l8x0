@@ -7,6 +7,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+Clear-Host
+
 $app_version = "=== Fibocom Connect v2023.08.01 ==="
 Write-Host $app_version
 
@@ -21,8 +23,6 @@ $APN_PASS = ""
 
 # Override dns settings. Example: @('8.8.8.8', '1.1.1.1')
 $DNS_OVERRIDE = @()
-
-Clear-Host
 
 ### Ublock files
 Get-ChildItem -Recurse -Path .\ -Include *.ps1, *.psm1, *.psd1, *.dll | Unblock-File
