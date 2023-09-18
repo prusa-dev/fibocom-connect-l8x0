@@ -144,7 +144,7 @@ try {
         $response = Send-ATCommand -Port $modem -Command "AT+CGCONTRDP=1"
 
         if (-Not (Test-AtResponseError $response)) {
-            $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' }
+            $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' } | Select-Object -First 1
             $m = [regex]::Match($ip_addr, '(?<ip>(?:\d{1,3}\.){3}\d{1,3})\.(?<mask>(?:\d{1,3}\.){3}\d{1,3})')
             if (-Not $m.Success) {
                 Write-Error2 "Could not get ip address from '$ip_addr'"
@@ -152,10 +152,10 @@ try {
             }
             $ip_addr = $m.Groups['ip'].Value
             $ip_mask = $m.Groups['mask'].Value
-            $ip_gw = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[5] -replace '"', '' }
+            $ip_gw = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[5] -replace '"', '' } | Select-Object -First 1
 
-            $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' }
-            $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' }
+            $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' } | Select-Object -First 1
+            $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' } | Select-Object -First 1
             [string[]]$ip_dns = $ip_dns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
         }
         elseif (-Not $OnlyMonitor) {
