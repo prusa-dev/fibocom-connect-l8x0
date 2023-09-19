@@ -216,7 +216,10 @@ try {
 
                 $response = ''
 
-                $response += Send-ATCommand -Port $modem -Command "AT+MTSM=1"
+                # Temperature doesn't work on L850
+                if (-Not($model -match 'L850')) {
+                    $response += Send-ATCommand -Port $modem -Command "AT+MTSM=1"
+                }
                 $response += Send-ATCommand -Port $modem -Command "AT+COPS?"
                 $response += Send-ATCommand -Port $modem -Command "AT+CSQ?"
                 $response += Send-ATCommand -Port $modem -Command "AT+XCCINFO?; +XLEC?; +XMCI=1"
@@ -291,7 +294,9 @@ try {
                 $lineWidth = $Host.UI.RawUI.BufferSize.Width
                 $titleWidth = 17
 
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
+                if ($null -ne $temp) {
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
+                }
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1} ({2})" -f "Operator:", $oper, $mode))
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}km" -f "Distance:", [Math]::Round(($ta * 78.125) / 1000, 3)))
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}%   {2}" -f "Signal:", $csq_perc, (Get-Bars -Value $csq_perc -Min 0 -Max 100)))
