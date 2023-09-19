@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 Clear-Host
 
-$app_version = "=== Fibocom Connect v2023.08.01 ==="
+$app_version = "=== Fibocom Connect v2023.09.1 ==="
 Write-Host $app_version
 
 # NCM intrface MAC address
