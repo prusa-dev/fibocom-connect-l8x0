@@ -4,7 +4,7 @@
 param(
     [switch] $OnlyMonitor = $false
 )
-
+$PSDefaultParameterValues = @{"*:Verbose" = ($VerbosePreference -eq 'Continue') }
 $ErrorActionPreference = 'Stop'
 
 Clear-Host

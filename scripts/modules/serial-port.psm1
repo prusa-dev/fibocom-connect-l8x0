@@ -106,6 +106,7 @@ function Send-ATCommand {
     $sourceIdentifier = "$($Port.PortName)_DataReceived"
 
     $response = ''
+    Write-Verbose "--> `"$Command`""
     $Port.WriteLine($Command)
 
     while ($true) {
@@ -115,6 +116,7 @@ function Send-ATCommand {
         }
         Remove-Event -EventIdentifier $e.EventIdentifier
         $response += $Port.ReadExisting()
+        Write-Verbose "<-- $response"
         if ((Test-AtResponseSuccess $response)) {
             break;
         }
