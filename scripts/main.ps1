@@ -119,7 +119,7 @@ try {
                 $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
                 $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
                 $response += Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_USER`",`"$APN_PASS`""
-                $response += Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/0`",`"/USBHS/NCM/0`",2,1"
+                $response += Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/2`",`"/USBHS/NCM/0`",2,1"
                 $response += Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
                 $response += Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
                 $response += Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
