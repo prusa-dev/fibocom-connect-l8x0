@@ -275,7 +275,7 @@ try {
                     [int[]]$ca_bw_x = $ca_match.Groups['bw'].Captures | ForEach-Object { [int]$_.Value }
                     [string[]]$ca_band_x = $ca_match.Groups['band'].Captures | Where-Object { $_.Value -gt 0 } | ForEach-Object { "B$_" }
 
-                    if ($ca_band_x.Length -eq 0) {
+                    if ($ca_band_x.Length -ne $ca_number) {
                         $ca_band_x = $band_x
                     }
 
