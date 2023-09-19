@@ -311,7 +311,7 @@ try {
 
                 $carriers_count = $pci_x.Length
                 for (($i = 0); $i -lt $carriers_count; $i++) {
-                    Write-Host -NoNewline ("{0} " -f "===Carrier $($i + 1):")
+                    Write-Host -NoNewline ("===Carrier {0,2}: " -f ($i + 1))
                     Write-Host -NoNewline ("{0} {1,9} " -f "CI:", $ci_x[$i])
                     Write-Host -NoNewline ("{0} {1,5} " -f "PCI:", $pci_x[$i])
                     Write-Host -NoNewline ("{0} {1,3} ({2,5}) " -f "Band (EARFCN):", $band_x[$i], $dluarfnc_x[$i])
