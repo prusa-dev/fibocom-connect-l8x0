@@ -1,5 +1,4 @@
 function Get-SerialPort {
-    [OutputType([string])]
     param (
         [Parameter(Mandatory)]
         [string] $FriendlyName
@@ -9,8 +8,13 @@ function Get-SerialPort {
     if ($pnpDevice -and $pnpDevice.Name) {
         $port_match = [regex]::Match($pnpDevice.Name, '(COM\d{1,3})')
         if ($port_match.Success) {
-            return $port_match.Groups[1].Value
+            $port = $port_match.Groups[1].Value
+            $containerId = $pnpDevice | Get-PnpDeviceProperty -KeyName DEVPKEY_Device_ContainerId | Select-Object -ExpandProperty Data
+            return @($port, $containerId)
         }
+    }
+    else {
+        $null
     }
 }
 

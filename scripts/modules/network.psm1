@@ -1,12 +1,21 @@
 function Get-NetworkInterface {
     param(
         [Parameter(Mandatory)]
-        [string] $Mac
+        [string] $Mac,
+        [Parameter(Mandatory)]
+        [string] $ContainerId
     )
 
-    $ncm1ifindex = Get-NetAdapter | Where-Object { $_.MacAddress -eq $Mac } | Select-Object -ExpandProperty InterfaceIndex
+    $ncm1ifindex = Get-NetAdapter | Where-Object {
+        $_.MacAddress -eq $Mac -and `
+        (Get-PnpDeviceProperty -InstanceId $_.PnPDeviceID -KeyName DEVPKEY_Device_ContainerId -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Data) -eq $ContainerId
+    } | Select-Object -First 1 -ExpandProperty InterfaceIndex
+
     if ($ncm1ifindex) {
         return $ncm1ifindex
+    }
+    else {
+        return $null
     }
 }
 
@@ -55,4 +64,56 @@ function Initialize-Network {
     Start-Sleep -Milliseconds 100
     Set-DNSClient -InterfaceIndex $InterfaceIndex -RegisterThisConnectionsAddress $false | Out-Null
     Set-DnsClientServerAddress -InterfaceIndex $InterfaceIndex -ServerAddresses $IpDns | Out-Null
+}
+
+function Start-NetworkMonitoring {
+    param(
+        [Parameter(Mandatory)]
+        [string] $WatchdogSourceIdentifier,
+        [Parameter(Mandatory)]
+        [string] $Mac,
+        [Parameter(Mandatory)]
+        [string] $ContainerId
+    )
+
+    $null = Start-Job -Name "NetworkMonitoring" -ArgumentList $WatchdogSourceIdentifier, $Mac, $ContainerId -InitializationScript $functions -ScriptBlock {
+        param (
+            [string] $WatchdogSourceIdentifier,
+            [string] $Mac,
+            [string] $ContainerId
+        )
+
+        Import-Module "$($using:PWD)/modules/network.psm1"
+
+        Register-EngineEvent -SourceIdentifier $WatchdogSourceIdentifier -Forward
+        Register-WMIEvent -SourceIdentifier "NetworkDisconnectEvent" -Namespace root\wmi -Class MSNdis_StatusMediaDisconnect
+
+        try {
+            while ($true) {
+                try {
+                    $e = Wait-Event -SourceIdentifier "NetworkDisconnectEvent"
+                    if (-Not $e) {
+                        Start-Sleep -Seconds 1
+                        continue
+                    }
+                    Remove-Event -EventIdentifier $e.EventIdentifier
+
+                    $foundInterfaceIndex = Get-NetworkInterface -Mac $Mac -ContainerId $ContainerId
+                    $foundInterfaceHasConnection = Get-NetConnectionProfile -InterfaceIndex $foundInterfaceIndex -IPv4Connectivity Internet -ErrorAction SilentlyContinue
+
+                    if (-Not $foundInterfaceHasConnection) {
+                        New-Event -SourceIdentifier $WatchdogSourceIdentifier -Sender "NetworkMonitoring"  -MessageData "Disconnected"
+                    }
+                }
+                catch {}
+            }
+        }
+        finally {
+            Unregister-Event -SourceIdentifier "NetworkDisconnectEvent" -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Stop-NetworkMonitoring {
+    Stop-Job -Name "NetworkMonitoring" -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
 }

@@ -42,16 +42,19 @@ try {
 
         Write-Host $app_version
 
-        $modem_port = Wait-Action -Message 'Find modem control port' -Action {
+        $modem_port_result = Wait-Action -Message 'Find modem control port' -Action {
             while ($true) {
-                $port = Get-SerialPort -FriendlyName $COM_NAME
-                if ($port) {
+                $port_result = Get-SerialPort -FriendlyName $COM_NAME
+                if ($port_result) {
                     Start-Sleep -Seconds 2 | Out-Null
-                    return $port
+                    return $port_result
                 }
                 Start-Sleep -Seconds 5 | Out-Null
             }
         }
+
+        $modem_port = $modem_port_result[0]
+        $modem_containerId = $modem_port_result[1]
 
         Write-Host "Modem control port: $modem_port"
 
@@ -186,7 +189,7 @@ try {
 
         if (-Not $OnlyMonitor) {
             Wait-Action -ErrorAction SilentlyContinue -Message "Setup network" -Action {
-                $ncm1ifindex = Get-NetworkInterface -Mac $MAC
+                $ncm1ifindex = Get-NetworkInterface -Mac $MAC -ContainerId $modem_containerId
                 if (-Not $ncm1ifindex) {
                     Write-Error2 "Could not find interface with mac '$MAC'"
                     exit 1
@@ -201,6 +204,7 @@ try {
 
         $watchdogEventSource = "WatchdogEvent"
         Start-SerialPortMonitoring -WatchdogSourceIdentifier $watchdogEventSource -FriendlyName $COM_NAME
+        Start-NetworkMonitoring -WatchdogSourceIdentifier $watchdogEventSource -Mac $MAC -ContainerId $modem_containerId
 
         ### Monitoring
         Write-Host
@@ -336,12 +340,14 @@ try {
             $Host.UI.RawUI.CursorSize = $cursorSize
         }
 
+        Stop-NetworkMonitoring
         Stop-SerialPortMonitoring
         Get-Event -SourceIdentifier $watchdogEventSource -ErrorAction SilentlyContinue | Remove-Event
         Close-SerialPort -Port $modem
     }
 }
 finally {
+    Stop-NetworkMonitoring
     Stop-SerialPortMonitoring
     Close-SerialPort -Port $modem
 }
