@@ -261,12 +261,12 @@ try {
                 $rssi = Convert-RsrpToRssi $rsrp $bw
 
 
-                [int[]]$ci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[5] -replace '"', '') }
-                [int[]]$pci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[6] -replace '"', '') }
-                [int[]]$dluarfnc_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { [int]($args[7] -replace '"', '') }
+                [int[]]$ci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { [int]($args[5] -replace '"', '') }
+                [int[]]$pci_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { [int]($args[6] -replace '"', '') }
+                [int[]]$dluarfnc_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { [int]($args[7] -replace '"', '') }
                 [string[]]$band_x = $dluarfnc_x | Get-BandLte
-                [int[]]$rsrp_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { ([int]$args[10]) - 141 }
-                [int[]]$rsrq_x = $response | Awk -Split '[:,]' -Filter '\+XMCI:' -Action { ([int]$args[11]) / 2 - 20 }
+                [int[]]$rsrp_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { ([int]$args[10]) - 141 }
+                [int[]]$rsrq_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { ([int]$args[11]) / 2 - 20 }
 
                 $ca_match = [regex]::Match($response, "\+XLEC: (?:\d+),(?<no_of_cells>\d+),(?:(?<bw>\d+),*)+(?:BAND_LTE_(?:(?<band>\d+),*)+)?")
                 if ($ca_match.Success) {
