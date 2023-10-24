@@ -12,9 +12,10 @@ Clear-Host
 $app_version = "=== Fibocom Connect v2023.09.1 ==="
 Write-Host $app_version
 
-# NCM intrface MAC address
+# NCM interface MAC address
 $MAC = "00-00-11-12-13-14"
-# COM port display name search string. Could be '*COM7*' if acm2 does not exists on your machine
+
+# COM port display name search string. Supports wildcard. Could be "*COM7*" if acm2 does not exists on your machine
 $COM_NAME = "*acm2*"
 
 $APN = "internet"
