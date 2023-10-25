@@ -83,17 +83,47 @@ function Get-Bars {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [double] $Value,
+        [AllowNull()]
+        [nullable[double]] $Value,
         [Parameter(Mandatory)]
         [double] $Min,
         [Parameter(Mandatory)]
         [double] $Max,
         [uint16] $BarWidth = 8
     )
-    if ($Value -lt $Min ) { $Value = $Min }
+    if ($null -eq $Value -or $Value -lt $Min ) { $Value = $Min }
     if ($Value -gt $Max ) { $Value = $Max }
 
     $bar_fill = [Math]::Abs([Math]::Round(($Value - $Min) / (($Max - $Min) / $BarWidth)))
     $bar_empty = $BarWidth - $bar_fill
     "[{0}{1}]" -f ("$([char]0x2588)" * $bar_fill), ("$([char]0x2591)" * $bar_empty)
+}
+
+function Invoke-Operand ($Command) {
+    if ($Command -is [scriptblock]) {
+        return Invoke-Command -ScriptBlock $Command -NoNewScope
+    }
+
+    return $Command
+}
+
+function Invoke-NullCoalescing {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [object]$LeftHand,
+
+        [Parameter(Mandatory = $true, Position = 1)]
+        [object]$RightHand
+    )
+
+    if ($Value = Invoke-Operand -Command $LeftHand) {
+        return $Value
+    }
+
+    return Invoke-Operand -Command $RightHand
 }

@@ -233,35 +233,37 @@ try {
                     continue
                 }
 
-                $tech = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { [int]$args[4] }
-                $mode = '--'
-                switch ($tech) {
-                    0 { $mode = 'EDGE' }
-                    2 { $mode = 'UMTS' }
-                    3 { $mode = 'LTE' }
-                    4 { $mode = 'HSDPA' }
-                    5 { $mode = 'HSUPA' }
-                    6 { $mode = 'HSPA' }
-                    7 { $mode = 'LTE' }
+                [nullable[int]]$tech = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { $args[4] }
+                $mode = switch ($tech) {
+                    0 { 'EDGE' }
+                    2 { 'UMTS' }
+                    3 { 'LTE' }
+                    4 { 'HSDPA' }
+                    5 { 'HSUPA' }
+                    6 { 'HSPA' }
+                    7 { 'LTE' }
+                    default { $null }
                 }
 
                 $oper = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { $args[3] -replace '"', '' }
-                $temp = $response | Awk -Split '[:,]' -Filter '\+MTSM:' -Action { [int]$args[1] }
+
+                [nullable[int]]$temp = $response | Awk -Split '[:,]' -Filter '\+MTSM:' -Action { $args[1] }
 
                 $csq = $response | Awk -Split '[:,]' -Filter '\+CSQ:' -Action { [int]$args[1] }
                 $csq_perc = 0
                 if ($csq -ge 0 -and $csq -le 31) {
                     $csq_perc = $csq * 100 / 31
                 }
-                $cqs_rssi = 2 * $csq - 113
+                #$cqs_rssi = 2 * $csq - 113
 
-                [int]$dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[7] -replace '"', '') }
-                [double]$rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
-                [double]$rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
-                [double]$sinr = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
-                [int]$ta = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { [int]($args[13] -replace '"', '') }
+                [nullable[int]]$dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { $args[7] -replace '"', '' }
+                [nullable[double]]$rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
+                [nullable[double]]$rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
+                [nullable[double]]$sinr = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[12]) / 2 }
+                [nullable[int]]$ta = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { $args[13] -replace '"', '' }
+                $distance = Invoke-NullCoalescing { [Math]::Round(($ta * 78.125) / 1000, 3) } { $null }
 
-                [int]$bw = $response | Awk -Split '[:,]' -Filter '\+XLEC:' -Action { [int]$args[3] }
+                [nullable[int]]$bw = $response | Awk -Split '[:,]' -Filter '\+XLEC:' -Action { [int]$args[3] }
 
                 $rssi = Convert-RsrpToRssi $rsrp $bw
 
@@ -273,6 +275,7 @@ try {
                 [int[]]$rsrp_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { ([int]$args[10]) - 141 }
                 [int[]]$rsrq_x = $response | Awk -Split '[:,]' -Filter '\+XMCI: [45]' -Action { ([int]$args[11]) / 2 - 20 }
 
+                $band = '--'
                 $ca_match = [regex]::Match($response, "\+XLEC: (?:\d+),(?<no_of_cells>\d+),(?:(?<bw>\d+),*)+(?:BAND_LTE_(?:(?<band>\d+),*)+)?")
                 if ($ca_match.Success) {
                     $ca_number = $ca_match.Groups['no_of_cells'].Value
@@ -289,7 +292,7 @@ try {
                         $band += "{0}@{1}MHz " -f $ca_band_x[$i], (Get-BandwidthFrequency $ca_bw_x[$i])
                     }
                 }
-                else {
+                elseif ($null -ne $dluarfnc) {
                     $band = "{0}@{1}MHz" -f (Get-BandLte $dluarfnc), (Get-BandwidthFrequency $bw)
                 }
 
@@ -302,8 +305,8 @@ try {
                 if ($null -ne $temp) {
                     Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
                 }
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1} ({2})" -f "Operator:", $oper, $mode))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}km" -f "Distance:", [Math]::Round(($ta * 78.125) / 1000, 3)))
+                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1} ({2})" -f "Operator:", (Invoke-NullCoalescing $oper '----'), (Invoke-NullCoalescing $mode '--')))
+                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}km" -f "Distance:", (Invoke-NullCoalescing $distance '--')))
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}%   {2}" -f "Signal:", $csq_perc, (Get-Bars -Value $csq_perc -Min 0 -Max 100)))
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSSI:", $rssi, (Get-Bars -Value $rssi -Min -110 -Max -25)))
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "SINR:", $sinr, (Get-Bars -Value $sinr -Min -10 -Max 30)))
@@ -311,7 +314,7 @@ try {
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "RSRQ:", $rsrq, (Get-Bars -Value $rsrq -Min -25 -Max -1)))
 
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "Band:", $band))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", $dluarfnc))
+                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", (Invoke-NullCoalescing $dluarfnc '--')))
 
                 $carriersLine = $Host.UI.RawUI.CursorPosition
                 for (($i = 0); $i -lt $carriers_count; $i++) {

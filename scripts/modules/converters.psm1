@@ -1,11 +1,15 @@
 function Get-BandLte {
     param(
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
-        [int] $Channel
+        [AllowNull()]
+        [nullable[int]] $Channel
     )
 
     process {
-        if ( $Channel -lt 600 ) {
+        if ($null -eq $Channel) {
+            "--"
+        }
+        elseif ( $Channel -lt 600 ) {
             "B1"
         }
         elseif ( $Channel -lt 1200 ) {
@@ -39,7 +43,7 @@ function Get-BandLte {
             "B11"
         }
         elseif ( $Channel -lt 5010 ) {
-            "-"
+            "--"
         }
         elseif ( $Channel -lt 5180 ) {
             "B12"
@@ -51,7 +55,7 @@ function Get-BandLte {
             "B14"
         }
         elseif ( $Channel -lt 5730 ) {
-            "-"
+            "--"
         }
         elseif ( $Channel -lt 5850 ) {
             "B17"
@@ -72,7 +76,7 @@ function Get-BandLte {
             "B22"
         }
         elseif ( $Channel -lt 7500 ) {
-            "-"
+            "--"
         }
         elseif ( $Channel -lt 7700 ) {
             "B23"
@@ -105,7 +109,7 @@ function Get-BandLte {
             "B32"
         }
         elseif ( $Channel -lt 36000 ) {
-            "-"
+            "--"
         }
         elseif ( $Channel -lt 36200 ) {
             "B33"
@@ -171,7 +175,7 @@ function Get-BandLte {
             "B53"
         }
         elseif ( $Channel -lt 65536 ) {
-            "-"
+            "--"
         }
         elseif ( $Channel -lt 66436 ) {
             "B65"
@@ -219,7 +223,7 @@ function Get-BandLte {
             "B88"
         }
         else {
-            "-"
+            "--"
         }
     }
 }
@@ -227,7 +231,8 @@ function Get-BandLte {
 function Get-BandwidthFrequency {
     param(
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
-        [int] $Bandwidth
+        [AllowNull()]
+        [nullable[int]] $Bandwidth
     )
     process {
         switch ($Bandwidth) {
@@ -245,26 +250,33 @@ function Get-BandwidthFrequency {
 function Convert-RsrpToRssi {
     param(
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
-        [double] $Rsrp,
+        [AllowNull()]
+        [nullable[double]] $Rsrp,
         [Parameter(Mandatory, Position = 1)]
-        [int] $Bandwidth
+        [AllowNull()]
+        [nullable[int]] $Bandwidth
     )
     process {
-        $np = switch ($Bandwidth) {
-            0 { 6 }
-            1 { 15 }
-            2 { 25 }
-            3 { 50 }
-            4 { 75 }
-            5 { 100 }
-            default { 0 }
-        }
-
-        if ($np -gt 0) {
-            $Rsrp + (10 * [Math]::Log10(12 * $np))
+        if ($null -eq $Rsrp -or $null -eq $Bandwidth) {
+            $null
         }
         else {
-            -113
+            $np = switch ($Bandwidth) {
+                0 { 6 }
+                1 { 15 }
+                2 { 25 }
+                3 { 50 }
+                4 { 75 }
+                5 { 100 }
+                default { 0 }
+            }
+
+            if ($np -gt 0) {
+                $Rsrp + (10 * [Math]::Log10(12 * $np))
+            }
+            else {
+                -113
+            }
         }
     }
 }
