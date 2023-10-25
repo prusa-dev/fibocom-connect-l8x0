@@ -20,7 +20,8 @@ Edit `scripts/main.ps1` to configure your carrier APN, APN_USER and APN_PASS
 Find `AT+XACT=` in `scripts/main.ps1` and edit command to your needs
 Example:
 
-- LTE All bands: AT+XACT=2,,,0
+- UMTS+LTE all bands, LTE preferred: AT+XACT=4,2,,0
+- LTE all bands: AT+XACT=2,,,0
 - LTE 3 and 7 bands: AT+XACT=2,,,103,107
 
 ### Override DNS
