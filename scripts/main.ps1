@@ -118,7 +118,7 @@ try {
                 $response += Send-ATCommand -Port $modem -Command "AT+CGATT=0"
                 $response += Send-ATCommand -Port $modem -Command "AT+COPS=2"
                 $response += Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
-                $response += Send-ATCommand -Port $modem -Command "AT+XACT=2,,,0"
+                $response += Send-ATCommand -Port $modem -Command "AT+XACT=4,2,,0"
                 $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
                 $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
                 $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
