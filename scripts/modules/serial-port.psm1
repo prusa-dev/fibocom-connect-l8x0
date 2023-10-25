@@ -68,6 +68,22 @@ function Close-SerialPort {
     }
 }
 
+function Test-SerialPort {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [System.IO.Ports.SerialPort] $Port
+    )
+
+    if (-Not($Port.IsOpen)) {
+        throw "Modem port is not opened."
+    }
+
+    if (-Not($Port.DsrHolding)) {
+        throw "Modem port is not available."
+    }
+}
+
 function Test-AtResponseError {
     [CmdletBinding()]
     param(
@@ -103,9 +119,7 @@ function Send-ATCommand {
         [string] $Command
     )
 
-    if (-Not($Port.IsOpen)) {
-        throw "Can't send command. Modem port is not opened"
-    }
+    Test-SerialPort -Port $Port
 
     $sourceIdentifier = "$($Port.PortName)_DataReceived"
 
@@ -113,15 +127,21 @@ function Send-ATCommand {
     Write-Verbose "--> `"$Command`""
     $Port.WriteLine($Command)
 
+    $waitEventAttempt = 0
     while ($true) {
-        $e = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout 10
+        Test-SerialPort -Port $Port
+        $e = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout ([Math]::Max(1, [Math]::Ceiling($Port.ReadTimeout / 1000)))
         if (-Not $e) {
-            break;
+            $waitEventAttempt += 1
+            if ($waitEventAttempt -gt 10) {
+                throw "Attempts to read the data from modem have been exhausted.";
+            }
+            continue;
         }
         Remove-Event -EventIdentifier $e.EventIdentifier
         $response += $Port.ReadExisting()
         Write-Verbose "<-- $response"
-        if ((Test-AtResponseSuccess $response)) {
+        if ((Test-AtResponseSuccess $response) -or (Test-AtResponseError $response)) {
             break;
         }
     }
