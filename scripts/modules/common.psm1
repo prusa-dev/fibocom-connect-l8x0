@@ -44,12 +44,12 @@ function Wait-Action {
 
         & $Action
 
-        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
+        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job -Force | Out-Null
         $Host.UI.RawUI.CursorPosition = $messageLine
         Write-Host "$Message DONE!"
     }
     catch {
-        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job | Out-Null
+        $job | Stop-Job -PassThru -ErrorAction SilentlyContinue | Remove-Job -Force | Out-Null
         $Host.UI.RawUI.CursorPosition = $messageLine
         Write-Error2 "$Message ERROR!"
         throw
