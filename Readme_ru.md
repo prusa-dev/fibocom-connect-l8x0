@@ -15,15 +15,15 @@
 
 Отредактируйте `scripts/main.ps1` чтобы настроить APN, APN_USER and APN_PASS своего оператора
 
-#### Предпочитаемые бенды
+#### Предпочитаемые бэнды
 
 Найдите `AT+XACT=` в файле `scripts/main.ps1` и отредактируйте в соостветсвии со своими предпочтениями
 
 Пример:
 
-- UMTS+LTE all bands, LTE preferred: AT+XACT=4,2,,0
-- LTE all bands: AT+XACT=2,,,0
-- LTE 3 and 7 bands: AT+XACT=2,,,103,107
+- UMTS+LTE все бэнды, LTE предпочтителней: AT+XACT=4,2,,0
+- LTE все бэнды: AT+XACT=2,,,0
+- LTE 3 и 7 бэнды: AT+XACT=2,,,103,107
 
 #### Установка своих DNS серверов
 
