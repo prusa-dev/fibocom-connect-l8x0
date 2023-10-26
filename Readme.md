@@ -7,7 +7,9 @@
 All script **_must_** be run as administrator
 
 - `connect.cmd`: Connect and monitoring
+- `connect_with_logs.cmd`: Connect and monitoring. With logging
 - `monitor.cmd`: Connection monitoring without connect
+- `monitor_with_logs.cmd`: Connection monitoring without connect. With logging
 
 ## Setup
 
