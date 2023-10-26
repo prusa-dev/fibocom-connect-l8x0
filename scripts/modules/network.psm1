@@ -7,8 +7,9 @@ function Get-NetworkInterface {
     )
 
     $ncm1ifindex = Get-NetAdapter | Where-Object {
-        $_.MacAddress -eq $Mac -and `
-        (Get-PnpDeviceProperty -InstanceId $_.PnPDeviceID -KeyName DEVPKEY_Device_ContainerId -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Data) -eq $ContainerId
+        ($_.MacAddress -eq $Mac) -and `
+        ($null -ne $_.Status) -and `
+        ((Get-PnpDeviceProperty -InstanceId $_.PnPDeviceID -KeyName DEVPKEY_Device_ContainerId -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Data) -eq $ContainerId)
     } | Select-Object -First 1 -ExpandProperty InterfaceIndex
 
     if ($ncm1ifindex) {
