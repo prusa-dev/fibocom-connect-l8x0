@@ -122,24 +122,36 @@ try {
             Write-Host
             Wait-Action -Message "Initialize connection" -Action {
                 $response = ''
-                $response += Send-ATCommand -Port $modem -Command "AT+CFUN=1"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
-                $response += Send-ATCommand -Port $modem -Command "AT+CREG=0"
-                $response += Send-ATCommand -Port $modem -Command "AT+CEREG=0"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGATT=0"
-                $response += Send-ATCommand -Port $modem -Command "AT+COPS=2"
-                $response += Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
-                $response += Send-ATCommand -Port $modem -Command "AT+XACT=4,2,,0"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
-                $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
-                $response += Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_USER`",`"$APN_PASS`""
-                $response += Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/2`",`"/USBHS/NCM/0`",2,1"
-                $response += Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
-                $response += Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGATT=1"
-                $response += Send-ATCommand -Port $modem -Command "AT+CGDATA=M-RAW_IP,1"
+                $response = Send-ATCommand -Port $modem -Command "AT+CFUN=1"
+                $response = Send-ATCommand -Port $modem -Command "AT+CGPIAF=1,0,0,0"
+                $response = Send-ATCommand -Port $modem -Command "AT+CREG=0"
+                $response = Send-ATCommand -Port $modem -Command "AT+CEREG=0"
+                $response = Send-ATCommand -Port $modem -Command "AT+CGATT=0"
+                $response = Send-ATCommand -Port $modem -Command "AT+COPS=2"
+                $response = Send-ATCommand -Port $modem -Command "AT+XCESQRC=1"
+
+                $response = Send-ATCommand -Port $modem -Command "AT+XACT=4,2,,0"
+                if (Test-AtResponseError $response) {
+                    Write-Error2 ($response -join "`r`n")
+                    exit 1
+                }
+
+                $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0,`"IP`""
+                $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=0"
+                $response = Send-ATCommand -Port $modem -Command "AT+CGDCONT=1,`"IP`",`"$APN`""
+                $response = Send-ATCommand -Port $modem -Command "AT+XGAUTH=1,0,`"$APN_USER`",`"$APN_PASS`""
+                $response = Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/2`",`"/USBHS/NCM/0`",2,1"
+                $response = Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
+
+                $response = Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
+                if (Test-AtResponseError $response) {
+                    Write-Error2 ($response -join "`r`n")
+                    exit 1
+                }
+
+                $response = Send-ATCommand -Port $modem -Command "AT+CGACT=1,1"
+                $response = Send-ATCommand -Port $modem -Command "AT+CGATT=1"
+                $response = Send-ATCommand -Port $modem -Command "AT+CGDATA=M-RAW_IP,1"
             }
 
             Wait-Action -Message "Establish connection" -Action {
@@ -203,7 +215,7 @@ try {
             Wait-Action -ErrorAction SilentlyContinue -Message "Setup network" -Action {
                 $ncm1ifindex = Get-NetworkInterface -Mac $MAC -ContainerId $modem_containerId
                 if (-Not $ncm1ifindex) {
-                    Write-Error2 "Could not find interface with mac '$MAC'"
+                    Write-Error2 "Could not find network interface with mac '$MAC'"
                     exit 1
                 }
 
