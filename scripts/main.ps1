@@ -7,10 +7,20 @@ param(
 $PSDefaultParameterValues = @{"*:Verbose" = ($VerbosePreference -eq 'Continue') }
 $ErrorActionPreference = 'Stop'
 
+$app_version = "Fibocom Connect v2023.10.1"
+
 Clear-Host
 
-$app_version = "=== Fibocom Connect v2023.10.1 ==="
-Write-Host $app_version
+$bufferSize = $Host.UI.RawUI.BufferSize
+$bufferSize.Height = 1000
+$Host.UI.RawUI.BufferSize = $bufferSize
+
+$Host.UI.RawUI.WindowTitle = $app_version
+if ($OnlyMonitor) {
+    $Host.UI.RawUI.WindowTitle += " (monitor)"
+}
+
+Write-Host "=== $app_version ==="
 
 # NCM interface MAC address
 $MAC = "00-00-11-12-13-14"
@@ -24,6 +34,7 @@ $APN_PASS = ""
 
 # Override dns settings. Example: @('8.8.8.8', '1.1.1.1')
 $DNS_OVERRIDE = @()
+
 
 ### Ublock files
 Get-ChildItem -Recurse -Path .\ -Include *.ps1, *.psm1, *.psd1, *.dll | Unblock-File
@@ -41,7 +52,7 @@ try {
     while ($true) {
         Clear-Host
 
-        Write-Host $app_version
+        Write-Host "=== $app_version ==="
 
         $modem_port_result = Wait-Action -Message 'Find modem control port' -Action {
             while ($true) {
@@ -212,7 +223,7 @@ try {
         Write-Host "=== Status ==="
         $cursorSize = $Host.UI.RawUI.CursorSize; $Host.UI.RawUI.CursorSize = 0
         try {
-            $statusLine = $Host.UI.RawUI.CursorPosition
+            $statusCursorPosition = $Host.UI.RawUI.CursorPosition
 
             while ($true) {
                 if ((Get-Event -SourceIdentifier $watchdogEventSource -ErrorAction SilentlyContinue)) {
@@ -256,6 +267,11 @@ try {
                 }
                 #$cqs_rssi = 2 * $csq - 113
 
+                [nullable[int]]$u_dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 2' -Action { $args[7] -replace '"', '' }
+                [nullable[double]]$u_rssi = $response | Awk -Split '[:,]' -Filter '\+XMCI: 2' -Action { [int]$args[10] - 111 }
+                [nullable[double]]$u_rscp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 2' -Action { [int]$args[11] - 121 }
+                [nullable[double]]$u_ecno = $response | Awk -Split '[:,]' -Filter '\+XMCI: 2' -Action { ([int]$args[12] / 2) - 24 }
+
                 [nullable[int]]$dluarfnc = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { $args[7] -replace '"', '' }
                 [nullable[double]]$rsrp = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[10]) - 141 }
                 [nullable[double]]$rsrq = $response | Awk -Split '[:,]' -Filter '\+XMCI: 4' -Action { ([int]$args[11]) / 2 - 20 }
@@ -297,7 +313,7 @@ try {
                 }
 
                 ### Display
-                $Host.UI.RawUI.CursorPosition = $statusLine
+                $Host.UI.RawUI.CursorPosition = $statusCursorPosition
 
                 $lineWidth = $Host.UI.RawUI.BufferSize.Width
                 $titleWidth = 17
@@ -306,32 +322,46 @@ try {
                     Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0} $([char]0xB0)C" -f "Temp:", $temp))
                 }
                 Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1} ({2})" -f "Operator:", (Invoke-NullCoalescing $oper '----'), (Invoke-NullCoalescing $mode '--')))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}km" -f "Distance:", (Invoke-NullCoalescing $distance '--')))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}%   {2}" -f "Signal:", $csq_perc, (Get-Bars -Value $csq_perc -Min 0 -Max 100)))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSSI:", $rssi, (Get-Bars -Value $rssi -Min -110 -Max -25)))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "SINR:", $sinr, (Get-Bars -Value $sinr -Min -10 -Max 30)))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSRP:", $rsrp, (Get-Bars -Value $rsrp -Min -120 -Max -50)))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "RSRQ:", $rsrq, (Get-Bars -Value $rsrq -Min -25 -Max -1)))
 
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "Band:", $band))
-                Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", (Invoke-NullCoalescing $dluarfnc '--')))
-
-                $carriersLine = $Host.UI.RawUI.CursorPosition
-                for (($i = 0); $i -lt $carriers_count; $i++) {
-                    Write-Host ("{0,-$lineWidth}" -f ' ')
+                if ($null -ne $mode) {
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}km" -f "Distance:", (Invoke-NullCoalescing $distance '--')))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}%   {2}" -f "Signal:", $csq_perc, (Get-Bars -Value $csq_perc -Min 0 -Max 100)))
                 }
-                $Host.UI.RawUI.CursorPosition = $carriersLine
 
-                $carriers_count = $pci_x.Length
-                for (($i = 0); $i -lt $carriers_count; $i++) {
-                    Write-Host -NoNewline ("===Carrier {0,2}: " -f ($i + 1))
-                    Write-Host -NoNewline ("{0} {1,9} " -f "CI:", $ci_x[$i])
-                    Write-Host -NoNewline ("{0} {1,5} " -f "PCI:", $pci_x[$i])
-                    Write-Host -NoNewline ("{0} {1,3} ({2,5}) " -f "Band (EARFCN):", $band_x[$i], $dluarfnc_x[$i])
-                    Write-Host -NoNewline ("{0} {1,4:f0}dBm {2} " -f "RSRP:", $rsrp_x[$i], (Get-Bars -Value $rsrp_x[$i] -Min -120 -Max -50))
-                    Write-Host -NoNewline ("{0} {1,4:f0}dB  {2} " -f "RSRQ:", $rsrq_x[$i], (Get-Bars -Value $rsrq_x[$i] -Min -25 -Max -1))
-                    Write-Host
+                if ($mode -eq 'UMTS') {
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSSI:", $u_rssi, (Get-Bars -Value $u_rssi -Min -120 -Max -25)))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSCP:", $u_rscp, (Get-Bars -Value $u_rscp -Min -120 -Max -25)))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "ECNO:", $u_ecno, (Get-Bars -Value $u_ecno -Min -24 -Max 0)))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "UARFCN:", $u_dluarfnc))
                 }
+                elseif ($mode -eq 'LTE') {
+
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSSI:", $rssi, (Get-Bars -Value $rssi -Min -110 -Max -25)))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "SINR:", $sinr, (Get-Bars -Value $sinr -Min -10 -Max 30)))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dBm {2}" -f "RSRP:", $rsrp, (Get-Bars -Value $rsrp -Min -120 -Max -50)))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1,4:f0}dB  {2}" -f "RSRQ:", $rsrq, (Get-Bars -Value $rsrq -Min -25 -Max -1)))
+
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "Band:", $band))
+                    Write-Host ("{0,-$lineWidth}" -f ("{0,-$titleWidth} {1}" -f "EARFCN:", (Invoke-NullCoalescing $dluarfnc '--')))
+
+                    $carriers_count = $pci_x.Length
+                    for (($i = 0); $i -lt $carriers_count; $i++) {
+                        Write-Host -NoNewline ("===Carrier {0,2}: " -f ($i + 1))
+                        Write-Host -NoNewline ("{0} {1,9} " -f "CI:", $ci_x[$i])
+                        Write-Host -NoNewline ("{0} {1,5} " -f "PCI:", $pci_x[$i])
+                        Write-Host -NoNewline ("{0} {1,3} ({2,5}) " -f "Band (EARFCN):", $band_x[$i], $dluarfnc_x[$i])
+                        Write-Host -NoNewline ("{0} {1,4:f0}dBm {2} " -f "RSRP:", $rsrp_x[$i], (Get-Bars -Value $rsrp_x[$i] -Min -120 -Max -50))
+                        Write-Host -NoNewline ("{0} {1,4:f0}dB  {2} " -f "RSRQ:", $rsrq_x[$i], (Get-Bars -Value $rsrq_x[$i] -Min -25 -Max -1))
+                        Write-Host
+                    }
+                }
+
+                ### Clear
+                $lastCusrsorPosition = $Host.UI.RawUI.CursorPosition
+                $cleanBuffer = $Host.UI.RawUI.NewBufferCellArray(
+                    @{ Width = $Host.UI.RawUI.BufferSize.Width; Height = 200 },
+                    @{ Character = ' '; ForegroundColor = $Host.UI.RawUI.ForegroundColor; BackgroundColor = $Host.UI.RawUI.BackgroundColor } )
+                $Host.UI.RawUI.SetBufferContents($lastCusrsorPosition, $cleanBuffer)
 
                 Start-Sleep -Seconds 2
             }
