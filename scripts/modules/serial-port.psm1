@@ -75,11 +75,11 @@ function Test-SerialPort {
         [System.IO.Ports.SerialPort] $Port
     )
 
-    if (-Not($Port.IsOpen)) {
+    if (!$Port.IsOpen) {
         throw "Modem port is not opened."
     }
 
-    if (-Not($Port.DsrHolding)) {
+    if (!$Port.DsrHolding) {
         throw "Modem port is not available."
     }
 }
@@ -119,12 +119,13 @@ function Send-ATCommand {
         [string] $Command
     )
 
+    $response = ''
+    Write-Verbose "--> `"$Command`""
+
     Test-SerialPort -Port $Port
 
     $sourceIdentifier = "$($Port.PortName)_DataReceived"
 
-    $response = ''
-    Write-Verbose "--> `"$Command`""
     $Port.WriteLine($Command)
 
     $waitEventAttempt = 0
@@ -134,7 +135,7 @@ function Send-ATCommand {
         if (-Not $e) {
             $waitEventAttempt += 1
             if ($waitEventAttempt -gt 10) {
-                throw "Attempts to read the data from modem have been exhausted.";
+                throw "Attempts to read the data from modem have been exhausted.`nCOMMAND: '$Command'.`nRESPONSE: '$response'";
             }
             continue;
         }
