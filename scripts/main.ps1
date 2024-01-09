@@ -256,7 +256,7 @@ try {
                     continue
                 }
 
-                [nullable[int]]$tech = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { $args[4] }
+                [nullable[int]]$tech = $response | Awk -Split '(?<=\+COPS):|,' -Filter '\+COPS:' -Action { $args[4] }
                 $mode = switch ($tech) {
                     0 { 'EDGE' }
                     2 { 'UMTS' }
@@ -268,7 +268,7 @@ try {
                     default { $null }
                 }
 
-                $oper = $response | Awk -Split '[:,]' -Filter '\+COPS:' -Action { $args[3] -replace '"', '' }
+                $oper = $response | Awk -Split '(?<=\+COPS):|,' -Filter '\+COPS:' -Action { $args[3] -replace '"', '' }
 
                 [nullable[int]]$temp = $response | Awk -Split '[:,]' -Filter '\+MTSM:' -Action { $args[1] }
 
