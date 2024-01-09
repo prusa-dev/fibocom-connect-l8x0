@@ -117,7 +117,7 @@ try {
         Write-Host "IMSI: $imsi"
         Write-Host "ICCID: $ccid"
 
-        if (-Not $OnlyMonitor) {
+        if (-Not($OnlyMonitor)) {
             ### Connect
             Write-Host
             Wait-Action -Message "Initialize connection" -Action {
@@ -180,7 +180,7 @@ try {
         if (-Not (Test-AtResponseError $response)) {
             $ip_addr = $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[4] -replace '"', '' } | Select-Object -First 1
             $m = [regex]::Match($ip_addr, '(?<ip>(?:\d{1,3}\.){3}\d{1,3})\.(?<mask>(?:\d{1,3}\.){3}\d{1,3})')
-            if (-Not $m.Success) {
+            if (-Not($m.Success)) {
                 Write-Error2 "Could not get ip address from '$ip_addr'"
                 exit 1
             }
@@ -190,9 +190,9 @@ try {
 
             $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[6] -replace '"', '' } | Select-Object -First 1
             $ip_dns += $response | Awk -Split '[:,]' -Filter '\+CGCONTRDP:' -Action { $args[7] -replace '"', '' } | Select-Object -First 1
-            [string[]]$ip_dns = $ip_dns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            [string[]]$ip_dns = $ip_dns | Where-Object { -Not([string]::IsNullOrWhiteSpace($_)) }
         }
-        elseif (-Not $OnlyMonitor) {
+        elseif (-Not($OnlyMonitor)) {
             Write-Error2 "Could not get ip address."
             Write-Error2 $response
             exit 1
@@ -202,7 +202,7 @@ try {
         Write-Host "MASK: $ip_mask"
         Write-Host "GW: $ip_gw"
 
-        $DNS_OVERRIDE = $DNS_OVERRIDE | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        $DNS_OVERRIDE = $DNS_OVERRIDE | Where-Object { -Not([string]::IsNullOrWhiteSpace($_)) }
         if ($DNS_OVERRIDE.Length -gt 0) {
             $ip_dns = $DNS_OVERRIDE
         }
@@ -211,10 +211,10 @@ try {
             Write-Host "DNS$($i+1): $($ip_dns[$i])"
         }
 
-        if (-Not $OnlyMonitor) {
+        if (-Not($OnlyMonitor)) {
             Wait-Action -ErrorAction SilentlyContinue -Message "Setup network" -Action {
                 $ncm1ifindex = Get-NetworkInterface -Mac $MAC -ContainerId $modem_containerId
-                if (-Not $ncm1ifindex) {
+                if (-Not($ncm1ifindex)) {
                     Write-Error2 "Could not find network interface with mac '$MAC'"
                     exit 1
                 }

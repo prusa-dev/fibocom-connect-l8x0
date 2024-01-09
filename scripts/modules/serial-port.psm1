@@ -75,11 +75,11 @@ function Test-SerialPort {
         [System.IO.Ports.SerialPort] $Port
     )
 
-    if (!$Port.IsOpen) {
+    if (-Not($Port.IsOpen)) {
         throw "Modem port is not opened."
     }
 
-    if (!$Port.DsrHolding) {
+    if (-Not($Port.DsrHolding)) {
         throw "Modem port is not available."
     }
 }
@@ -132,7 +132,7 @@ function Send-ATCommand {
     while ($true) {
         Test-SerialPort -Port $Port
         $e = Wait-Event -SourceIdentifier $sourceIdentifier -Timeout ([Math]::Max(1, [Math]::Ceiling($Port.ReadTimeout / 1000)))
-        if (-Not $e) {
+        if (-Not($e)) {
             $waitEventAttempt += 1
             if ($waitEventAttempt -gt 10) {
                 throw "Attempts to read the data from modem have been exhausted.`nCOMMAND: '$Command'.`nRESPONSE: '$response'";
@@ -173,14 +173,14 @@ function Start-SerialPortMonitoring {
             while ($true) {
                 try {
                     $e = Wait-Event -SourceIdentifier "DeviceChangeEvent"
-                    if (-Not $e) {
+                    if (-Not($e)) {
                         Start-Sleep -Seconds 1
                         continue
                     }
                     Remove-Event -EventIdentifier $e.EventIdentifier
 
                     $foundPort = Get-SerialPort -FriendlyName $FriendlyName
-                    if (-Not $foundPort) {
+                    if (-Not($foundPort)) {
                         New-Event -SourceIdentifier $WatchdogSourceIdentifier -Sender "SerialPortMonitoring"  -MessageData "Disconnected"
                     }
                 }

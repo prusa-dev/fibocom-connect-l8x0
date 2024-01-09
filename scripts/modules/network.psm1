@@ -93,7 +93,7 @@ function Start-NetworkMonitoring {
             while ($true) {
                 try {
                     $e = Wait-Event -SourceIdentifier "NetworkDisconnectEvent"
-                    if (-Not $e) {
+                    if (-Not($e)) {
                         Start-Sleep -Seconds 1
                         continue
                     }
@@ -102,7 +102,7 @@ function Start-NetworkMonitoring {
                     $foundInterfaceIndex = Get-NetworkInterface -Mac $Mac -ContainerId $ContainerId
                     $foundInterfaceHasConnection = Get-NetConnectionProfile -InterfaceIndex $foundInterfaceIndex -IPv4Connectivity Internet -ErrorAction SilentlyContinue
 
-                    if (-Not $foundInterfaceHasConnection) {
+                    if (-Not($foundInterfaceHasConnection)) {
                         New-Event -SourceIdentifier $WatchdogSourceIdentifier -Sender "NetworkMonitoring"  -MessageData "Disconnected"
                     }
                 }
