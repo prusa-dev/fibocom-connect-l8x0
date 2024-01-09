@@ -45,11 +45,13 @@ function Open-SerialPort {
         [System.IO.Ports.SerialPort] $Port
     )
 
-    Register-ObjectEvent -InputObject $Port -EventName "DataReceived" -SourceIdentifier "$($Port.PortName)_DataReceived"
-
     $Port.Open();
+    while (-Not($Port.DsrHolding)) {
+        Start-Sleep -Seconds 1
+    }
     $Port.DiscardInBuffer()
     $Port.DiscardOutBuffer()
+    Register-ObjectEvent -InputObject $Port -EventName "DataReceived" -SourceIdentifier "$($Port.PortName)_DataReceived"
 }
 
 function Close-SerialPort {
@@ -120,12 +122,11 @@ function Send-ATCommand {
     )
 
     $response = ''
-    Write-Verbose "--> `"$Command`""
-
-    Test-SerialPort -Port $Port
+    Write-Verbose "`r`n--> $Command"
 
     $sourceIdentifier = "$($Port.PortName)_DataReceived"
 
+    Test-SerialPort -Port $Port
     $Port.WriteLine($Command)
 
     $waitEventAttempt = 0
@@ -140,8 +141,11 @@ function Send-ATCommand {
             continue;
         }
         Remove-Event -EventIdentifier $e.EventIdentifier
-        $response += $Port.ReadExisting()
-        Write-Verbose "<-- $response"
+
+        $intermediate_response = $Port.ReadExisting()
+        $response += $intermediate_response
+
+        Write-Verbose (($intermediate_response -split "`r`n" | Where-Object { $_ } | ForEach-Object { "<-- $_" }) -join "`r`n")
         if ((Test-AtResponseSuccess $response) -or (Test-AtResponseError $response)) {
             break;
         }

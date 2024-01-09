@@ -54,7 +54,7 @@ try {
 
         Write-Host "=== $app_version ==="
 
-        $modem_port_result = Wait-Action -Message 'Find modem control port' -Action {
+        $modem_port_result = Wait-Action -Message 'Search modem control port' -Action {
             while ($true) {
                 $port_result = Get-SerialPort -FriendlyName $COM_NAME
                 if ($port_result) {
@@ -68,16 +68,18 @@ try {
         $modem_port = $modem_port_result[0]
         $modem_containerId = $modem_port_result[1]
 
-        Write-Host "Modem control port: $modem_port"
+        Write-Host "Found modem control port: $modem_port"
 
         if ($modem) {
             $modem.Dispose()
             $modem = $null
         }
 
-        $modem = New-SerialPort -Name $modem_port
-
-        Open-SerialPort -Port $modem
+        $modem = Wait-Action -Message 'Open modem control port' -Action {
+            $local_modem = New-SerialPort -Name $modem_port
+            Open-SerialPort -Port $local_modem
+            return $local_modem
+        }
 
         Send-ATCommand -Port $modem -Command "ATE1" | Out-Null
         Send-ATCommand -Port $modem -Command "AT+CMEE=2" | Out-Null
