@@ -230,7 +230,9 @@ try {
 
         $watchdogEventSource = "WatchdogEvent"
         Start-SerialPortMonitoring -WatchdogSourceIdentifier $watchdogEventSource -FriendlyName $COM_NAME
-        Start-NetworkMonitoring -WatchdogSourceIdentifier $watchdogEventSource -Mac $MAC -ContainerId $modem_containerId
+        if (-Not($OnlyMonitor)) {
+            Start-NetworkMonitoring -WatchdogSourceIdentifier $watchdogEventSource -Mac $MAC -ContainerId $modem_containerId
+        }
 
         ### Monitoring
         Write-Host
