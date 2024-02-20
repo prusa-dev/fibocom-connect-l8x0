@@ -15,9 +15,8 @@ function Get-NetworkInterface {
     if ($ncm1ifindex) {
         return $ncm1ifindex
     }
-    else {
-        return $null
-    }
+
+    return $null
 }
 
 function Initialize-Network {

@@ -13,9 +13,7 @@ function Get-SerialPort {
             return @($port, $containerId)
         }
     }
-    else {
-        $null
-    }
+    return $null
 }
 
 function New-SerialPort {
