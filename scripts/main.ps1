@@ -7,7 +7,7 @@ param(
 $PSDefaultParameterValues = @{"*:Verbose" = ($VerbosePreference -eq 'Continue') }
 $ErrorActionPreference = 'Stop'
 
-$app_version = "Fibocom Connect v2024.01.1"
+$app_version = "Fibocom Connect v2024.02.1"
 
 Clear-Host
 
