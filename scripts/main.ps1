@@ -102,12 +102,14 @@ try {
         Write-Host "Serial: $serialNumber"
         Write-Host "IMEI: $imei"
 
-        ### Check SIM Card
-        $response = Send-ATCommand -Port $modem -Command "AT+CPIN?"
-        if (-Not($response -match '\+CPIN: READY')) {
-            Write-Error2 "Check SIM card."
-            Write-Error2 ($response -join "`r`n")
-            exit 1
+        if (-Not($OnlyMonitor)) {
+            ### Check SIM Card
+            $response = Send-ATCommand -Port $modem -Command "AT+CPIN?"
+            if (-Not($response -match '\+CPIN: READY')) {
+                Write-Error2 "Check SIM card."
+                Write-Error2 ($response -join "`r`n")
+                exit 1
+            }
         }
 
         ### Get SIM information
