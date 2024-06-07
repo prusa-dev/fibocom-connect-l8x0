@@ -154,7 +154,7 @@ while ($true) {
                 $response = Send-ATCommand -Port $modem -Command "AT+XDATACHANNEL=1,1,`"/USBCDC/2`",`"/USBHS/NCM/0`",2,1"
                 $response = Send-ATCommand -Port $modem -Command "AT+XDNS=1,1"
 
-                $response = Send-ATCommand -Port $modem -Command "AT+COPS=0,0"
+                $response = Send-ATCommand -Port $modem -Command "AT+COPS=0,0" -TimeoutSec 60
                 if (Test-AtResponseError $response) {
                     Write-Error2 ($response -join "`r`n")
                     exit 1
