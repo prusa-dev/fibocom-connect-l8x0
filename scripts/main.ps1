@@ -224,13 +224,13 @@ while ($true) {
 
         if (-Not($OnlyMonitor)) {
             Wait-Action -ErrorAction SilentlyContinue -Message "Setup network" -Action {
-                $ncm1ifindex = Get-NetworkInterface -Mac $MAC -ContainerId $modem_containerId
-                if (-Not($ncm1ifindex)) {
+                $interfaceIndex = Get-NetworkInterface -Mac $MAC -ContainerId $modem_containerId
+                if (-Not($interfaceIndex)) {
                     Write-Error2 "Could not find network interface with mac '$MAC'"
                     exit 1
                 }
 
-                Initialize-Network -InterfaceIndex $ncm1ifindex -IpAddress $ip_addr -IpMask $ip_mask -IpGateway $ip_gw -IpDns $ip_dns
+                Initialize-Network -InterfaceIndex $interfaceIndex -IpAddress $ip_addr -IpMask $ip_mask -IpGateway $ip_gw -IpDns $ip_dns
             }
         }
 
